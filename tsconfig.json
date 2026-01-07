@@ -12,9 +12,7 @@
         "emitDecoratorMetadata": true,
         "forceConsistentCasingInFileNames": true,
         "allowSyntheticDefaultImports": true,
-        "types": [
-            "jasmine",
-            "node"
-        ]
-    }
+        "types": ["jasmine", "node"]
+    },
+    "include": ["src/**/*.ts", "types/**/*.d.ts"]
 }
