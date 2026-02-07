@@ -1,4 +1,3 @@
-import fetch from 'node-fetch'
 import { readFromFile } from './file'
 import TrafficInfiObject from '../Views/TrafficInfoObject'
 import { getDate, FORMAT } from './date'
@@ -7,6 +6,7 @@ import StationsData from '../dataStore/Stations.data'
 export enum REQUEST_TYPE { FILE, TRAIN, STATION }
 
 export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = undefined): Promise<TrafficInfiObject> => {
+    const fetch = require("node-fetch");
     let data: any = undefined
     if (requestType === REQUEST_TYPE.FILE && value !== undefined) {
         data = readFromFile(value)
