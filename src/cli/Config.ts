@@ -8,7 +8,7 @@ import { exec, execSync } from 'child_process'
 import { execPath } from 'process'
 import { argumentsCount } from '.'
 
-const configFilePath = String(execSync(`echo ${process.env.CONFIG_FILE}`))
+const configFilePath = String(execSync(`printf '%s' "${process.env.CONFIG_FILE}"`))
 const config = getJsonFie(configFilePath)
 
 export const Config = ({ set, get }: any, value: string) => {
