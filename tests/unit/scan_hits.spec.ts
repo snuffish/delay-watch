@@ -68,4 +68,46 @@ test.describe('Scanner Hit & Delay Detection Unit Tests', () => {
       (trafficUtils as any).getTrafficInfo = originalGetTrafficInfo
     }
   })
+
+  test('should process nextconnections/location SJ API payload structure correctly', async () => {
+    const nextConnectionsPayload = {
+      locationId: 'SK',
+      locationName: 'Skövde C',
+      arrivalConnections: [
+        {
+          trainNumber: '430',
+          operator: 'SJ',
+          currentDateTime: '2026-07-19T12:07:00',
+          originalDateTime: '2026-07-19T11:28:00',
+          departureDate: '2026-07-19',
+          station: 'Göteborg C',
+          transportType: 'SJ Snabbtåg',
+          delayed: true
+        }
+      ],
+      departureConnections: []
+    }
+
+    const originalGetTrafficInfo = trafficUtils.getTrafficInfo
+    try {
+      (trafficUtils as any).getTrafficInfo = async (type: any, val: any) => {
+        if (type === trafficUtils.REQUEST_TYPE.STATION) return nextConnectionsPayload as any
+        return {} as any
+      }
+
+      const scanResult = await ScanLocation('SK', 20)
+
+      expect(scanResult).toBeDefined()
+      expect(scanResult?.LocationCode).toBe('SK')
+      expect(scanResult?.LocationName).toBe('Skövde C')
+      expect(scanResult?.Trips.length).toBe(1)
+
+      const trip = scanResult?.Trips[0]
+      expect(trip?.AnnouncedTrainNumber).toBe('430')
+      expect(trip?.MinutesDelay).toBe(39)
+      expect(trip?.Operator).toBe('SJ')
+    } finally {
+      (trafficUtils as any).getTrafficInfo = originalGetTrafficInfo
+    }
+  })
 })

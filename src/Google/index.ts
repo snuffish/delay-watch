@@ -1,21 +1,21 @@
-import fs from 'fs'
-import readline from 'readline'
-import { google } from 'googleapis'
-import PaybackInterface from './PaybackInterface'
-import { $TOKEN_FILE, $PAYBACK_FILE } from '../FilePaths'
-import { convertDate, FORMAT } from '../Utils/date'
-import { createPaybackSyncProgressBar } from '../Utils/progress'
-import chalk from 'chalk'
-const jsdom = require('jsdom')
-const { JSDOM } = jsdom
+import fs from "fs";
+import readline from "readline";
+import { google } from "googleapis";
+import PaybackInterface from "./PaybackInterface";
+import { $TOKEN_FILE, $PAYBACK_FILE, $GOOGLE_CREDENTIALS } from "../FilePaths";
+import { convertDate, FORMAT } from "../Utils/date";
+import { createPaybackSyncProgressBar } from "../Utils/progress";
+import chalk from "chalk";
+const jsdom = require("jsdom");
+const { JSDOM } = jsdom;
 
-let gmail: any = undefined
-let auth: any = undefined
+let gmail: any = undefined;
+let auth: any = undefined;
 
-let progressBar: any = undefined
+let progressBar: any = undefined;
 
 // If modifying these scopes, delete token.json.
-const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
 // The file token.json stores the user's access and refresh tokens, and is
 // created automatically when the authorization flow completes for the first
 // time.
@@ -28,18 +28,41 @@ const SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
  * @param {Object} credentials The authorization client credentials.
  * @param {function} callback The callback to call with the authorized client.
  */
-const authorize = (credentials: any, callback: any):any => {
-    const {client_secret, client_id, redirect_uris} = credentials.installed
+const authorize = (credentials: any, callback: any): any => {
+    if (!credentials || (!credentials.installed && !credentials.web)) {
+        console.error(
+            chalk.red.bold(
+                "\n[Error] Google OAuth credentials file missing or invalid.",
+            ),
+        );
+        console.error(chalk.yellow(`Expected file at: ${$GOOGLE_CREDENTIALS}`));
+        console.error(
+            chalk.gray(
+                `To enable Gmail payback sync, download your OAuth 2.0 Client Credentials JSON from Google Cloud Console and save it to:\n${$GOOGLE_CREDENTIALS}\n`,
+            ),
+        );
+        return;
+    }
+
+    const creds = credentials.installed || credentials.web;
+    const { client_secret, client_id, redirect_uris } = creds;
+    const redirectUri =
+        redirect_uris && redirect_uris.length > 0
+            ? redirect_uris[0]
+            : "urn:ietf:wg:oauth:2.0:oob";
     const oAuth2Client = new google.auth.OAuth2(
-        client_id, client_secret, redirect_uris[0])
-  
+        client_id,
+        client_secret,
+        redirectUri,
+    );
+
     // Check if we have previously stored a token.
-    fs.readFile($TOKEN_FILE, (err: any, token: any) => { 
-      if (err) return getNewToken(oAuth2Client, callback)
-      oAuth2Client.setCredentials(JSON.parse(token))
-      callback(oAuth2Client)
-    })
-}
+    fs.readFile($TOKEN_FILE, (err: any, token: any) => {
+        if (err) return getNewToken(oAuth2Client, callback);
+        oAuth2Client.setCredentials(JSON.parse(token));
+        callback(oAuth2Client);
+    });
+};
 
 /**
  * Get and store new token after prompting for user authorization, and then
@@ -48,157 +71,169 @@ const authorize = (credentials: any, callback: any):any => {
  * @param {getEventsCallback} callback The callback for the authorized client.
  */
 const getNewToken = (oAuth2Client: any, callback: any): any => {
-  const authUrl = oAuth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: SCOPES,
-  })
+    const authUrl = oAuth2Client.generateAuthUrl({
+        access_type: "offline",
+        scope: SCOPES,
+    });
 
-  console.log('Authorize this app by visiting this url:', authUrl)
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  })
+    console.log("Authorize this app by visiting this url:", authUrl);
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
 
-  rl.question('Enter the code from that page here: ', (code) => {
-    rl.close()
+    rl.question("Enter the code from that page here: ", (code) => {
+        rl.close();
 
-    oAuth2Client.getToken(code, (err: any, token: any) => {
-      if (err) return console.error('Error retrieving access token', err)
-      oAuth2Client.setCredentials(token)
-      // Store the token to disk for later program executions
-      fs.writeFile($TOKEN_FILE, JSON.stringify(token), (err) => {
-        if (err) return console.error(err)
-        console.log('Token stored to', $TOKEN_FILE)
-      })
-      
-      callback(oAuth2Client)
-    })
-  })
-}
+        oAuth2Client.getToken(code, (err: any, token: any) => {
+            if (err) return console.error("Error retrieving access token", err);
+            oAuth2Client.setCredentials(token);
+            // Store the token to disk for later program executions
+            fs.writeFile($TOKEN_FILE, JSON.stringify(token), (err) => {
+                if (err) return console.error(err);
+                console.log("Token stored to", $TOKEN_FILE);
+            });
 
-const generatePaybackData = async (_auth: any, fromYear: number | undefined = undefined) => {
-    auth = _auth
+            callback(oAuth2Client);
+        });
+    });
+};
+
+const generatePaybackData = async (
+    _auth: any,
+    fromYear: number | undefined = undefined,
+) => {
+    auth = _auth;
     try {
-      fs.unlinkSync($PAYBACK_FILE)
-    } catch(err) {
-      //console.log("ERR => ", err)
+        fs.unlinkSync($PAYBACK_FILE);
+    } catch (err) {
+        //console.log("ERR => ", err)
     }
-    
-    gmail = google.gmail({ version: 'v1', auth: _auth })
-    gmail.users.messages.list({
-      userId: 'me',
-      //q: `from:Kundservicefirst@vasttrafik.se AND Subject:Värdekod ${ fromYear !== undefined ? 'AND after:' + fromYear + '-01-01' : '' }`
-      q: `from:Kundservicefirst@vasttrafik.se AND Subject:Värdekod AND after:2010-01-01`
-    }, handleEmail)
-}
+
+    gmail = google.gmail({ version: "v1", auth: _auth });
+    gmail.users.messages.list(
+        {
+            userId: "me",
+            //q: `from:Kundservicefirst@vasttrafik.se AND Subject:Värdekod ${ fromYear !== undefined ? 'AND after:' + fromYear + '-01-01' : '' }`
+            q: `from:Kundservicefirst@vasttrafik.se AND Subject:Värdekod AND after:2010-01-01`,
+        },
+        handleEmail,
+    );
+};
 
 const handleEmail = (err: any, res: any) => {
-  let promises: Promise<PaybackInterface>[] = []
+    let promises: Promise<PaybackInterface>[] = [];
 
-  if (res !== undefined) {
-      for (const { id } of res.data.messages) {
-        promises.push(gmail.users.messages.get({ userId: 'me', id }))
-      }
-  }
-
-  if (promises.length > 0) {
-    Promise.all(promises).then((emailData: any) => {
-      let paybackList: PaybackInterface[] = []
-
-      let progressBar = createPaybackSyncProgressBar(emailData.length)
-
-      for (const data of emailData) {
-        let payback = handleEmailData(data)
-        
-        if (payback !== undefined) {
-          paybackList.push(payback)
+    if (res !== undefined) {
+        for (const { id } of res.data.messages) {
+            promises.push(gmail.users.messages.get({ userId: "me", id }));
         }
-        progressBar.increment()
-      }
+    }
 
-      paybackList.reverse()
+    if (promises.length > 0) {
+        Promise.all(promises).then((emailData: any) => {
+            let paybackList: PaybackInterface[] = [];
 
-      progressBar.stop()
+            let progressBar = createPaybackSyncProgressBar(emailData.length);
 
-      if (!fs.existsSync($PAYBACK_FILE)) {
-        console.log(`${ chalk.bold.greenBright('Created payback file:') } ${ chalk.redBright($PAYBACK_FILE) }`)
-      }
+            for (const data of emailData) {
+                let payback = handleEmailData(data);
 
-      fs.writeFileSync($PAYBACK_FILE, JSON.stringify(paybackList))
-    })
-  }
-}
+                if (payback !== undefined) {
+                    paybackList.push(payback);
+                }
+                progressBar.increment();
+            }
+
+            paybackList.reverse();
+
+            progressBar.stop();
+
+            if (!fs.existsSync($PAYBACK_FILE)) {
+                console.log(
+                    `${chalk.bold.greenBright("Created payback file:")} ${chalk.redBright($PAYBACK_FILE)}`,
+                );
+            }
+
+            fs.writeFileSync($PAYBACK_FILE, JSON.stringify(paybackList));
+        });
+    }
+};
 
 /** TODO: CHECK FOR PENDING PAYBACKS */
 /*const formatPaybackList = (paybackList: PaybackInterface[]): any => {
   
 }*/
 
-const handleEmailData = (emailData: any): PaybackInterface | undefined => {
-  const headers = emailData.data.payload.headers
+const handleEmailData = (emailData: any): PaybackInterface | undefined => {
+    const headers = emailData.data.payload.headers;
 
-  const subject = headers.filter((item: any) => item.name === 'Subject').map((item: any) => item.value)[0]
-  let datetime = headers.filter((item: any) => item.name === 'Date').map((item: any) => convertDate(item.value, FORMAT.DATETIME))[0]
-  const caseNumber = getCaseNumberFromSubject(subject)
+    const subject = headers
+        .filter((item: any) => item.name === "Subject")
+        .map((item: any) => item.value)[0];
+    let datetime = headers
+        .filter((item: any) => item.name === "Date")
+        .map((item: any) => convertDate(item.value, FORMAT.DATETIME))[0];
+    const caseNumber = getCaseNumberFromSubject(subject);
 
-  if (subject.indexOf('Värdekod gällande ärende') !== -1) {
-    const htmlString = Buffer.from(emailData.data.payload.parts[0].body.data, 'base64').toString()
-    const codeAndPrice = getCodeAndPriceFromHtml(htmlString)
+    if (subject.indexOf("Värdekod gällande ärende") !== -1) {
+        const htmlString = Buffer.from(
+            emailData.data.payload.parts[0].body.data,
+            "base64",
+        ).toString();
+        const codeAndPrice = getCodeAndPriceFromHtml(htmlString);
 
-    return <PaybackInterface>{
-      datetime,
-      caseNumber,
-      code: codeAndPrice.code,
-      price: codeAndPrice.price
+        return <PaybackInterface>{
+            datetime,
+            caseNumber,
+            code: codeAndPrice.code,
+            price: codeAndPrice.price,
+        };
+    } else if (subject.indexOf("Reklamation försenad resa") !== -1) {
+        return <PaybackInterface>{
+            datetime,
+            caseNumber,
+        };
     }
-  } else if (subject.indexOf('Reklamation försenad resa') !== -1) {
-    return <PaybackInterface>{
-      datetime,
-      caseNumber
-    }
-  }
 
-  return undefined
-}
+    return undefined;
+};
 
 const getCaseNumberFromSubject = (str: string) => {
-    const regex = /\[([0-9A-Z]+)]/gm
-    let m
+    const regex = /\[([0-9A-Z]+)]/gm;
+    let m;
 
-    let caseNumber:any = ''
+    let caseNumber: any = "";
 
-    let match:any = regex.exec(str)
+    let match: any = regex.exec(str);
     if (match !== null) {
-        return match['1']
-    } 
-}
+        return match["1"];
+    }
+};
 
 const getCodeAndPriceFromHtml = (htmlString: string) => {
-    const dom = new JSDOM(htmlString)
+    const dom = new JSDOM(htmlString);
 
     /** Get code */
-    let codeUrl = dom.window.document.querySelector('a').getAttribute('href')
-    const codeSplit = codeUrl.split('/')
-    const code = codeSplit[codeSplit.length - 1]
+    let codeUrl = dom.window.document.querySelector("a").getAttribute("href");
+    const codeSplit = codeUrl.split("/");
+    const code = codeSplit[codeSplit.length - 1];
 
     /** Get price */
-    let price = 0
-    const spanList = dom.window.document.querySelectorAll('span')
+    let price = 0;
+    const spanList = dom.window.document.querySelectorAll("span");
     for (const span of spanList) {
-        const parseNumber = parseInt(span.textContent)
+        const parseNumber = parseInt(span.textContent);
         if (Number.isInteger(parseNumber)) {
-            price = parseNumber
-            break
+            price = parseNumber;
+            break;
         }
     }
 
     return {
         code: code,
-        price: price
-    }
-}
+        price: price,
+    };
+};
 
-export {
-    generatePaybackData,
-    authorize
-}
+export { generatePaybackData, authorize };

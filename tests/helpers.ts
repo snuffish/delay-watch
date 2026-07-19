@@ -10,16 +10,26 @@ export const TEST_SERVER_URL = `http://localhost:${TEST_SERVER_PORT}`
 
 let activeServer: Server | null = null
 
-export const startTestServer = (port: number = TEST_SERVER_PORT): Server => {
+export const startTestServer = (port: number = TEST_SERVER_PORT): Server | null => {
   if (!activeServer) {
-    activeServer = CreateServer(port)
+    try {
+      const server = CreateServer(port)
+      server.on('error', (err: any) => {
+        if (err.code === 'EADDRINUSE') {
+          console.log(`[helpers] Server port ${port} already bound, using active instance.`)
+        }
+      })
+      activeServer = server
+    } catch {}
   }
   return activeServer
 }
 
 export const stopTestServer = (): void => {
   if (activeServer) {
-    activeServer.close()
+    try {
+      activeServer.close()
+    } catch {}
     activeServer = null
   }
 }

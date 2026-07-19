@@ -32,7 +32,7 @@ npx playwright test tests/integration   # Express server & API integration tests
 npx playwright test tests/e2e           # Playwright Chromium E2E web tests only
 
 # 3. Run a single spec file
-npx playwright test tests/unit/scan_hits.spec.ts
+npx playwright test tests/e2e/live_sj_web.spec.ts
 
 # 4. Debugging & UI modes
 npx playwright test --ui                # Interactive Playwright UI mode
@@ -70,7 +70,8 @@ tests/
 │   ├── server.spec.ts          # Express API routes (/api/scan, /api/stations, /api/payback)
 │   └── sj_live_api.spec.ts     # Live HTTP status 200 checks against active prod-api.adp.sj.se
 └── e2e/                        # Playwright browser E2E specs (Desktop Chrome)
-    └── web.spec.ts             # React 18, TanStack Router, Autocomplete & modern SJ link checks
+    ├── web.spec.ts             # Mock-first E2E web flows (Autocomplete, Router navigation)
+    └── live_sj_web.spec.ts     # Live unmocked E2E web integration against real prod-api.adp.sj.se
 ```
 
 ---
@@ -83,12 +84,11 @@ tests/
 
 ### 2. Integration Specs (`tests/integration/*.spec.ts`)
 - **Express Server API Specs** (`server.spec.ts`): Exercise Express controllers (`/api/scan`, `/api/stations`, `/api/payback`). Uses server lifecycle helpers from `tests/helpers.ts`.
-- **Live SJ API Specs** (`sj_live_api.spec.ts`): Perform live HTTP GET requests against SJ's active API (`https://prod-api.adp.sj.se/public/trafficinfo-api/v2/rest/remarks/announcements?lang=sv`) using header `Ocp-Apim-Subscription-Key: 39296c1a13304493b44236e1bcb7f544`.
+- **Live SJ API Specs** (`sj_live_api.spec.ts`): Perform live HTTP GET requests against SJ's active API (`https://prod-api.adp.sj.se/public/trafficinfo-api/v2/rest/remarks/announcements?lang=sv`).
 
 ### 3. E2E Web Specs (`tests/e2e/*.spec.ts`)
-- Launch Chromium via Playwright against `http://localhost:5174/`.
-- Test user interactions: Station Autocomplete dropdown, station badge removal, TanStack Router page transitions (`/`, `/stations`, `/payback`), and train delay cards.
-- Intercept and mock API endpoints using `mockRouteJson` helper from `tests/helpers.ts` and payloads from `tests/mocks.ts`.
+- **Mock-First Specs** (`web.spec.ts`): Intercept endpoints via `mockRouteJson` from `tests/helpers.ts` for fast, deterministic UI testing.
+- **Live SJ Web Specs** (`live_sj_web.spec.ts`): Perform live unmocked station scans on the React web UI against SJ's live endpoint (`prod-api.adp.sj.se`), verifying real rendered delay cards and valid modern SJ URLs (`https://www.sj.se/trafikinformation/tag/...`).
 
 ---
 

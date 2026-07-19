@@ -10,39 +10,41 @@ import { CliTable } from '../Render'
 const Payback = ({ sync, syncYear }: any) => {
     const googleCredentials = getJsonFie($GOOGLE_CREDENTIALS)
 
-    if (argumentsCount(3) === 0) {
-        if (!fs.existsSync($PAYBACK_FILE)) {
-            console.log(`${ chalk.bold.greenBright('Payback file not found:') } ${ chalk.redBright($PAYBACK_FILE) }`)
-            generatePaybackData(authorize(googleCredentials, generatePaybackData))
-            return
+    if (sync || syncYear !== undefined) {
+        authorize(googleCredentials, (authClient: any) => {
+            generatePaybackData(authClient, syncYear)
+        })
+        return
+    }
+
+    if (!fs.existsSync($PAYBACK_FILE)) {
+        console.log(`${ chalk.bold.yellow('Payback file not found:') } ${ chalk.redBright($PAYBACK_FILE) }`)
+        console.log(`${ chalk.cyan('Run with --sync to fetch paybacks from Gmail:') } ${ chalk.bold('delay-watch payback --sync') }\n`)
+        authorize(googleCredentials, (authClient: any) => {
+            generatePaybackData(authClient, syncYear)
+        })
+        return
+    }
+
+    const paybackList: PaybackInterface[] = getJsonFie($PAYBACK_FILE) || []
+
+    let totalPayback: number = 0
+    
+    let table: CliTable = new CliTable(['Datetime', 'Case number', 'Code', 'Payback'])
+    for (const payback of paybackList) {
+        let { datetime, caseNumber, code, price } = payback
+        if (price !== undefined) {
+            totalPayback += price
+        } else {
+            price = 0
         }
-
-        const paybackList: PaybackInterface[] = getJsonFie($PAYBACK_FILE)
-
-        let totalPayback: number = 0
         
-        let table: CliTable = new CliTable(['Datetime', 'Case number', 'Code', 'Payback'])
-        for (const payback of paybackList) {
-            let { datetime, caseNumber, code, price } = payback
-            if (price !== undefined) {
-                totalPayback += price
-            } else {
-                price = 0
-            }
-            
-            table.addRows([datetime, caseNumber, code, `${ price }kr`])
-        }
-
-        table.render()
-
-        console.log(`${ chalk.cyanBright('Number of paybacks:') } ${ chalk.bold.cyanBright(paybackList.length) } | ${ chalk.greenBright('Total payback:') } ${ chalk.bold.greenBright(totalPayback + 'kr') }`)
+        table.addRows([datetime, caseNumber, code, `${ price }kr`])
     }
 
-    if (sync) {
-        generatePaybackData(authorize(googleCredentials, generatePaybackData))
-    } else if (syncYear !== undefined) {
-        generatePaybackData(authorize(googleCredentials, generatePaybackData), syncYear)
-    }
+    table.render()
+
+    console.log(`${ chalk.cyanBright('Number of paybacks:') } ${ chalk.bold.cyanBright(paybackList.length) } | ${ chalk.greenBright('Total payback:') } ${ chalk.bold.greenBright(totalPayback + 'kr') }`)
 }
 
 export default Payback

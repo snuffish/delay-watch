@@ -2,6 +2,7 @@
 
 import fs from 'fs'
 import { $DELAY_WATCH_DIR, $CONFIG_FILE } from '../src/FilePaths'
+import { cli } from '../src/cli'
 
 const setupEnvironment = () => {
     if (!fs.existsSync($DELAY_WATCH_DIR)) {
@@ -18,5 +19,4 @@ const setupEnvironment = () => {
 
 setupEnvironment()
 
-require = require('esm')(module /*, options */)
-require('../src/cli').cli(process.argv)
+cli()

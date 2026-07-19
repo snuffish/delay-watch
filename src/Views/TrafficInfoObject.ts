@@ -1,8 +1,14 @@
 export interface TrafficInfoObject {
     LocationCode: string
+    LocationName?: string
+    locationId?: string
+    locationName?: string
     DepartureConnections: any[]
     ArrivalConnections: any[]
-    Stations: any[]
+    departureConnections?: any[]
+    arrivalConnections?: any[]
+    Stations?: any[]
+    remarks?: any[]
 }
 
 export type TrafficInfiObject = TrafficInfoObject

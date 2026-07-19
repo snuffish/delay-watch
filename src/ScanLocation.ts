@@ -29,19 +29,47 @@ export class Trip {
     Stations: StationView[] = []
     MinutesDelay: number = 0
 
-    constructor(data: any = {}) {
-        this.AnnouncedTrainNumber = data.AnnouncedTrainNumber || ''
-        this.StartLocationCode = data.StartDepartureLocationCode || ''
-        this.FinalLocationCode = data.FinalDestinationLocationCode || ''
-        this.Operator = data.InformationOwner || ''
+    // Detailed Hit Properties
+    OriginalTime: string = ''
+    EstimatedTime: string = ''
+    Track: string = ''
+    TransportType: string = ''
+    Remarks: { id?: string; level?: number; information?: string }[] = []
+    XodRemarks: { header?: string; content?: string }[] = []
+    IsCancelled: boolean = false
+    DepartureDate: string = ''
 
-        this.StartLocationName = getStationName(this.StartLocationCode)
-        this.FinalLocationName = getStationName(this.FinalLocationCode)
+    constructor(data: any = {}, currentStationName: string = '') {
+        this.AnnouncedTrainNumber = data.AnnouncedTrainNumber || data.trainNumber || ''
+        this.StartLocationCode = data.StartDepartureLocationCode || data.startLocationCode || ''
+        this.FinalLocationCode = data.FinalDestinationLocationCode || data.finalLocationCode || ''
+        this.Operator = data.InformationOwner || data.operator || data.transportType || ''
+
+        this.StartLocationName = data.StartLocationName || (this.StartLocationCode ? getStationName(this.StartLocationCode) : (currentStationName || ''))
+        this.FinalLocationName = data.FinalLocationName || (this.FinalLocationCode ? getStationName(this.FinalLocationCode) : (data.station || ''))
 
         this.url = getTrainUrl(this.AnnouncedTrainNumber)
+        this.Track = data.currentTrack || data.track || data.Track || ''
+        this.TransportType = data.transportType || data.TransportType || ''
+        this.IsCancelled = !!data.cancelled || !!data.IsCancelled
+        this.DepartureDate = data.departureDate || ''
+
+        if (Array.isArray(data.remarks)) {
+            this.Remarks = data.remarks
+        }
+        if (Array.isArray(data.xodRemarks)) {
+            this.XodRemarks = data.xodRemarks
+        }
 
         if (Array.isArray(data.Stations)) {
             this.addStations(data.Stations)
+        } else if (data.originalDateTime && data.currentDateTime) {
+            this.OriginalTime = data.originalDateTime.includes('T') ? data.originalDateTime.split('T')[1].slice(0, 5) : data.originalDateTime
+            this.EstimatedTime = data.currentDateTime.includes('T') ? data.currentDateTime.split('T')[1].slice(0, 5) : data.currentDateTime
+            const delay = timeDifference(this.OriginalTime, this.EstimatedTime)
+            if (delay > 0) {
+                this.MinutesDelay = delay
+            }
         }
     }
 
@@ -84,8 +112,11 @@ export const ScanLocation = async (locationCode: string, delayMinutes: number = 
     locationCode = locationCode.toUpperCase()
     let stationTrafficData = await getTrafficInfo(REQUEST_TYPE.STATION, locationCode)
     
-    const departureConnections = stationTrafficData?.DepartureConnections || []
-    let announcedTrainNumbers = departureConnections.map((train: any) => train.AnnouncedTrainNumber).filter(Boolean)
+    const departureConnections = stationTrafficData?.DepartureConnections || stationTrafficData?.departureConnections || []
+    const arrivalConnections = stationTrafficData?.ArrivalConnections || stationTrafficData?.arrivalConnections || []
+    
+    const allConnections = departureConnections.length > 0 ? departureConnections : arrivalConnections
+    let announcedTrainNumbers = allConnections.map((train: any) => train.AnnouncedTrainNumber || train.trainNumber).filter(Boolean)
 
     let trips: Trip[] = []
 
@@ -98,21 +129,43 @@ export const ScanLocation = async (locationCode: string, delayMinutes: number = 
         })
     }
 
-    for (const trainNumber of announcedTrainNumbers) {
+    for (const conn of allConnections) {
+        const trainNumber = conn.AnnouncedTrainNumber || conn.trainNumber
+        if (!trainNumber) continue
+
         let trainTrafficData = await getTrafficInfo(REQUEST_TYPE.TRAIN, trainNumber)
-        let trip = new Trip(trainTrafficData)
+        let trip: Trip
 
-        for (const station of trip.Stations) {
-            if (station.IsDelayed && !trips.includes(trip)) {
-                const dep = station.Departure
-                const departureTime = dep ? (dep.Time || '') : ''
-                const departureRealTime = dep ? (dep.RealTime || '') : ''
+        if (trainTrafficData && Array.isArray(trainTrafficData.Stations) && trainTrafficData.Stations.length > 0) {
+            trip = new Trip(trainTrafficData)
+            for (const station of trip.Stations) {
+                if (station.IsDelayed && !trips.includes(trip)) {
+                    const dep = station.Departure
+                    const departureTime = dep ? (dep.Time || '') : ''
+                    const departureRealTime = dep ? (dep.RealTime || '') : ''
 
-                const minutesDelay = timeDifference(departureTime, departureRealTime)
-                if (minutesDelay >= delayMinutes) {
-                    trip.setMinutesDelay(minutesDelay)
+                    const minutesDelay = timeDifference(departureTime, departureRealTime)
+                    if (minutesDelay >= delayMinutes) {
+                        trip.setMinutesDelay(minutesDelay)
+                        trips.push(trip)
+                        break
+                    }
+                }
+            }
+        } else {
+            // Build trip directly from connection item (nextconnections/location payload)
+            trip = new Trip(conn, getStationName(locationCode))
+            let minutesDelay = trip.MinutesDelay
+            if (minutesDelay === 0 && conn.originalDateTime && conn.currentDateTime) {
+                const origTime = conn.originalDateTime.includes('T') ? conn.originalDateTime.split('T')[1].slice(0, 5) : conn.originalDateTime
+                const currTime = conn.currentDateTime.includes('T') ? conn.currentDateTime.split('T')[1].slice(0, 5) : conn.currentDateTime
+                minutesDelay = timeDifference(origTime, currTime)
+                trip.setMinutesDelay(minutesDelay)
+            }
+
+            if ((conn.delayed || minutesDelay >= delayMinutes) && minutesDelay >= delayMinutes) {
+                if (!trips.some(t => t.AnnouncedTrainNumber === trip.AnnouncedTrainNumber)) {
                     trips.push(trip)
-                    break
                 }
             }
         }
@@ -127,7 +180,7 @@ export const ScanLocation = async (locationCode: string, delayMinutes: number = 
 
     const scanResult: Scan = {
         LocationCode: locationCode,
-        LocationName: getStationName(locationCode),
+        LocationName: stationTrafficData?.LocationName || stationTrafficData?.locationName || getStationName(locationCode),
         Trips: trips
     }
 

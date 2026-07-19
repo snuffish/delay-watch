@@ -18,6 +18,15 @@ interface TripData {
   FinalLocationName: string
   url: string
   MinutesDelay: number
+  OriginalTime?: string
+  EstimatedTime?: string
+  Track?: string
+  TransportType?: string
+  Remarks?: { id?: string; level?: number; information?: string }[]
+  XodRemarks?: { header?: string; content?: string }[]
+  IsCancelled?: boolean
+  DepartureDate?: string
+  Stations?: any[]
 }
 
 interface ScanData {
@@ -40,8 +49,13 @@ export function ScannerRoute() {
   const [newCodeInput, setNewCodeInput] = useState<string>('')
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false)
   const [highlightedIndex, setHighlightedIndex] = useState<number>(0)
-  
+  const [expandedTrips, setExpandedTrips] = useState<Record<string, boolean>>({})
+
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const toggleExpandTrip = (key: string) => {
+    setExpandedTrips(prev => ({ ...prev, [key]: !prev[key] }))
+  }
 
   const matchingSuggestions = useMemo(() => {
     const query = newCodeInput.trim().toLowerCase()
@@ -129,19 +143,19 @@ export function ScannerRoute() {
   return (
     <div className="space-y-6">
       {/* Scan Setup Controls */}
-      <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 backdrop-blur-xl shadow-xl space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-slate-900/80 border border-slate-800/90 rounded-2xl p-6 backdrop-blur-2xl shadow-xl space-y-6 relative">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/70 pb-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Station Scanner Setup
+            <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span> Station Scanner Setup
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Select station codes to scan for delayed trains.</p>
+            <p className="text-xs text-slate-400 mt-0.5">Select station codes to scan for delayed train connections.</p>
           </div>
 
           <button
             onClick={handleRunScan}
             disabled={scanMutation.isPending || selectedStations.length === 0}
-            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-400 text-slate-950 font-semibold text-sm hover:opacity-90 transition-all shadow-lg shadow-cyan-500/25 active:scale-95 disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-400 text-slate-950 font-bold text-xs hover:opacity-95 transition-all shadow-lg shadow-cyan-500/20 active:scale-95 disabled:opacity-50"
           >
             {scanMutation.isPending ? (
               <>
@@ -164,8 +178,13 @@ export function ScannerRoute() {
 
         {/* Selected Badges */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-slate-400">Selected Stations ({selectedStations.length}):</label>
-          <div className="flex flex-wrap gap-2 min-h-[38px] p-2 rounded-xl bg-slate-950/60 border border-slate-800/80">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
+            <span>Selected Stations ({selectedStations.length}):</span>
+            {selectedStations.length > 0 && (
+              <button onClick={() => setSelectedStations([])} className="text-slate-500 hover:text-slate-300 transition">Clear all</button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 min-h-[42px] p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
             {selectedStations.length === 0 ? (
               <span className="text-xs text-slate-500 p-1">No stations selected. Search and add station codes below.</span>
             ) : (
@@ -173,10 +192,10 @@ export function ScannerRoute() {
                 const station = allStations.find(s => s.id.toUpperCase() === code)
                 const name = station ? station.name : code
                 return (
-                  <span key={code} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900 border border-slate-700/80 text-xs font-medium text-slate-200">
+                  <span key={code} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900 border border-slate-700/80 text-xs font-medium text-slate-200 shadow-sm">
                     <span className="font-mono font-bold text-cyan-400">[{code}]</span>
                     <span>{name}</span>
-                    <button onClick={() => handleRemoveStation(code)} className="ml-1 text-slate-400 hover:text-rose-400 transition">&times;</button>
+                    <button onClick={() => handleRemoveStation(code)} className="ml-1 text-slate-400 hover:text-rose-400 transition font-bold">&times;</button>
                   </span>
                 )
               })
@@ -185,9 +204,10 @@ export function ScannerRoute() {
         </div>
 
         {/* Controls Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-800/60">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+          {/* Add Station Input */}
           <div className="space-y-2 relative" ref={containerRef}>
-            <label className="text-xs font-medium text-slate-300">Add Station (Type name or station code):</label>
+            <label className="text-xs font-semibold text-slate-300">Add Station (Type name or station code):</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <input
@@ -201,11 +221,11 @@ export function ScannerRoute() {
                   onFocus={() => newCodeInput.trim() && setIsDropdownOpen(true)}
                   onKeyDown={handleKeyDown}
                   placeholder="e.g. Skövde or SK..."
-                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-100 rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-cyan-500 shadow-inner"
                 />
 
                 {isDropdownOpen && matchingSuggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 backdrop-blur-xl divide-y divide-slate-800">
+                  <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-900/95 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 backdrop-blur-xl divide-y divide-slate-800">
                     {matchingSuggestions.map((station, index) => (
                       <div
                         key={station.id}
@@ -226,18 +246,20 @@ export function ScannerRoute() {
               <button
                 onClick={() => addStationByCode(newCodeInput)}
                 disabled={!newCodeInput.trim()}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl transition disabled:opacity-50"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition disabled:opacity-50 border border-slate-700/60"
               >
                 Add
               </button>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs font-medium">
+          {/* Delay Threshold Control */}
+          <div className="space-y-2.5">
+            <div className="flex justify-between items-center text-xs font-semibold">
               <span className="text-slate-300">Delay Threshold:</span>
-              <span className="text-cyan-400 font-bold">{delayMinutes} minutes</span>
+              <span className="text-cyan-400 font-mono font-bold px-2 py-0.5 rounded bg-cyan-950 border border-cyan-800">{delayMinutes} minutes</span>
             </div>
+            
             <input
               type="range"
               min="5"
@@ -245,26 +267,41 @@ export function ScannerRoute() {
               step="5"
               value={delayMinutes}
               onChange={e => setDelayMinutes(Number(e.target.value))}
-              className="w-full accent-cyan-400 bg-slate-800 h-2 rounded-lg cursor-pointer"
+              className="w-full accent-cyan-400 bg-slate-950 h-2 rounded-lg cursor-pointer border border-slate-800"
             />
+
+            <div className="flex gap-1.5 pt-0.5">
+              {[5, 15, 30, 45, 60].map(m => (
+                <button
+                  key={m}
+                  onClick={() => setDelayMinutes(m)}
+                  className={`flex-1 py-1 rounded-lg text-[10px] font-bold font-mono transition ${
+                    delayMinutes === m ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                  }`}
+                >
+                  {m}m
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
       {/* Error State */}
       {scanMutation.isError && (
-        <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-sm">
-          Failed to scan: {scanMutation.error?.message || 'API request failed'}. Ensure Express server is running on port 3000.
+        <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs flex items-center gap-2">
+          <span>⚠️</span>
+          <span>Failed to scan: {scanMutation.error?.message || 'API request failed'}. Ensure Express server is running on port 3000.</span>
         </div>
       )}
 
       {/* Results Section */}
-      <div className="space-y-4">
+      <div className="space-y-5">
         {scanMutation.isIdle && (
-          <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-12 text-center space-y-3">
-            <div className="text-4xl">🚆</div>
-            <h3 className="text-lg font-medium text-slate-300">Ready to Scan</h3>
-            <p className="text-sm text-slate-500 max-w-md mx-auto">Click "Start Scan" above to scan live train connections for delays exceeding your threshold.</p>
+          <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-10 text-center space-y-3">
+            <div className="text-3xl">🚆</div>
+            <h3 className="text-base font-semibold text-slate-300">Ready to Scan</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">Click "Start Scan" above to scan live train connections for delays exceeding your threshold.</p>
           </div>
         )}
 
@@ -279,50 +316,150 @@ export function ScannerRoute() {
         {scanMutation.isSuccess && totalDelayedTrips > 0 && (
           results.map(scan => (
             scan.Trips && scan.Trips.length > 0 && (
-              <div key={scan.LocationCode} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+              <div key={scan.LocationCode} className="bg-slate-900/80 border border-slate-800/90 rounded-2xl p-5 shadow-xl space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-sm text-cyan-400 bg-cyan-950 px-2.5 py-1 rounded-lg border border-cyan-800">[{scan.LocationCode}]</span>
-                    <a href={getStationUrl(scan.LocationName)} target="_blank" rel="noopener noreferrer" className="text-base font-bold text-slate-100 hover:text-cyan-400 transition flex items-center gap-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-mono font-bold text-xs text-cyan-400 bg-cyan-950 px-2.5 py-1 rounded-lg border border-cyan-800">[{scan.LocationCode}]</span>
+                    <a href={getStationUrl(scan.LocationName)} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-slate-100 hover:text-cyan-400 transition flex items-center gap-1.5">
                       {scan.LocationName}
-                      <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                      <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                     </a>
                   </div>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
                     {scan.Trips.length} Delayed Train(s)
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  {scan.Trips.map((trip, idx) => (
-                    <div key={idx} className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-slate-700 transition">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold font-mono bg-slate-800 text-slate-200 px-2 py-0.5 rounded">Train #{trip.AnnouncedTrainNumber}</span>
-                          <span className="text-xs text-slate-400 font-medium">{trip.Operator || 'SJ'}</span>
-                        </div>
-                        <div className="text-sm font-medium text-slate-200 flex flex-wrap items-center gap-2">
-                          <span>{trip.StartLocationName || trip.StartLocationCode}</span>
-                          <span className="text-slate-500">&rarr;</span>
-                          <span>{trip.FinalLocationName || trip.FinalLocationCode}</span>
-                        </div>
-                      </div>
+                  {scan.Trips.map((trip, idx) => {
+                    const tripKey = `${scan.LocationCode}-${trip.AnnouncedTrainNumber}-${idx}`
+                    const isExpanded = !!expandedTrips[tripKey]
 
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <div className="text-xs text-slate-400">Total Delay</div>
-                          <div className="text-lg font-bold text-rose-400 font-mono">+{trip.MinutesDelay} min</div>
+                    return (
+                      <div key={idx} className="bg-slate-950/80 border border-slate-800/80 rounded-xl overflow-hidden shadow-sm transition hover:border-slate-700/80">
+                        {/* Summary Header */}
+                        <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold font-mono bg-slate-800 text-slate-200 px-2 py-0.5 rounded border border-slate-700/50">Train #{trip.AnnouncedTrainNumber}</span>
+                              <span className="text-xs text-slate-400 font-medium px-2 py-0.5 rounded bg-slate-900 border border-slate-800">{trip.Operator || 'SJ'}</span>
+                              {trip.Track && (
+                                <span className="text-xs font-mono font-semibold text-cyan-400 bg-cyan-950/80 border border-cyan-800/80 px-2 py-0.5 rounded">Spår {trip.Track}</span>
+                              )}
+                              {trip.IsCancelled && (
+                                <span className="text-xs font-bold text-rose-400 bg-rose-950/80 border border-rose-800 px-2 py-0.5 rounded">Inställt / Cancelled</span>
+                              )}
+                            </div>
+                            <div className="text-xs font-semibold text-slate-200 flex flex-wrap items-center gap-2">
+                              <span>{trip.StartLocationName || trip.StartLocationCode}</span>
+                              <span className="text-cyan-400 font-bold">&rarr;</span>
+                              <span>{trip.FinalLocationName || trip.FinalLocationCode}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 self-end sm:self-center">
+                            <div className="text-right">
+                              <div className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Total Delay</div>
+                              <div className="text-base font-black text-rose-400 font-mono tracking-tight">+{trip.MinutesDelay} min</div>
+                            </div>
+
+                            <button
+                              onClick={() => toggleExpandTrip(tripKey)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition border flex items-center gap-1.5 ${
+                                isExpanded
+                                  ? 'bg-slate-800 text-slate-200 border-slate-700'
+                                  : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+                              }`}
+                            >
+                              <span>{isExpanded ? 'Hide Details' : 'Details'}</span>
+                              <svg className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+
+                            {trip.url && (
+                              <a href={trip.url} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-bold transition flex items-center gap-1">
+                                Train SJ Info
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                              </a>
+                            )}
+                          </div>
                         </div>
 
-                        {trip.url && (
-                          <a href={trip.url} target="_blank" rel="noopener noreferrer" className="px-3.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-semibold transition flex items-center gap-1">
-                            Train SJ Info
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                          </a>
+                        {/* Detailed Expandable Panel */}
+                        {isExpanded && (
+                          <div className="border-t border-slate-800/80 bg-slate-900/60 p-4 space-y-4 text-xs divide-y divide-slate-800/60">
+                            {/* Grid Stats */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                              <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                                <span className="text-[10px] text-slate-500 uppercase font-semibold">Scheduled Time</span>
+                                <div className="text-slate-200 font-mono font-bold mt-0.5">{trip.OriginalTime || 'Scheduled'}</div>
+                              </div>
+                              <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                                <span className="text-[10px] text-slate-500 uppercase font-semibold">Estimated Time</span>
+                                <div className="text-rose-400 font-mono font-bold mt-0.5">{trip.EstimatedTime || `+${trip.MinutesDelay}m`}</div>
+                              </div>
+                              <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                                <span className="text-[10px] text-slate-500 uppercase font-semibold">Track / Platform</span>
+                                <div className="text-cyan-400 font-mono font-bold mt-0.5">{trip.Track ? `Spår ${trip.Track}` : 'Standard'}</div>
+                              </div>
+                              <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                                <span className="text-[10px] text-slate-500 uppercase font-semibold">Transport Type</span>
+                                <div className="text-slate-300 font-semibold mt-0.5">{trip.TransportType || trip.Operator || 'Train'}</div>
+                              </div>
+                            </div>
+
+                            {/* Disruption Remarks */}
+                            {trip.Remarks && trip.Remarks.length > 0 && (
+                              <div className="pt-3 space-y-1.5">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Traffic & Disruption Remarks:</span>
+                                <div className="flex flex-wrap gap-2">
+                                  {trip.Remarks.map((rem, rIdx) => (
+                                    <span key={rIdx} className={`px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 ${
+                                      rem.level === 0 ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-slate-800 text-slate-200 border-slate-700'
+                                    }`}>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                      {rem.information || rem.id}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* XOD Bus / Service Notices */}
+                            {trip.XodRemarks && trip.XodRemarks.length > 0 && (
+                              <div className="pt-3 space-y-2">
+                                <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider">Replacement Bus & Service Announcements:</span>
+                                {trip.XodRemarks.map((xod, xIdx) => (
+                                  <div key={xIdx} className="bg-slate-950 p-3 rounded-lg border border-amber-500/30 space-y-1 text-slate-300">
+                                    {xod.header && <h4 className="font-bold text-amber-300 text-xs">{xod.header}</h4>}
+                                    {xod.content && <p className="text-xs text-slate-400 whitespace-pre-line leading-relaxed">{xod.content}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Route Stop Stations Timeline */}
+                            {trip.Stations && trip.Stations.length > 0 && (
+                              <div className="pt-3 space-y-2">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Train Route Stations & Stops:</span>
+                                <div className="space-y-1.5">
+                                  {trip.Stations.map((st: any, sIdx: any) => (
+                                    <div key={sIdx} className="flex items-center justify-between bg-slate-950/70 p-2 rounded border border-slate-800 text-xs">
+                                      <span className="font-semibold text-slate-200">{st.LocationName || st.LocationCode}</span>
+                                      <div className="flex items-center gap-3 font-mono text-slate-400 text-[11px]">
+                                        {st.Departure?.Time && <span>{st.Departure.Time} &rarr; <span className="text-rose-400">{st.Departure.RealTime || st.Departure.Time}</span></span>}
+                                        {st.MinutesDelay > 0 && <span className="text-rose-400 font-bold">+{st.MinutesDelay}m</span>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )

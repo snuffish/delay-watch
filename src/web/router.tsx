@@ -6,54 +6,60 @@ import { PaybackRoute } from './routes/PaybackRoute'
 
 const rootRoute = createRootRoute({
   component: () => (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Top Header Navigation */}
-      <header className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-800/80 pb-6 gap-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-slate-950 font-black text-2xl tracking-wider">
-            DW
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              Delay Watch <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">v1.7.9</span>
-            </h1>
-            <p className="text-sm text-slate-400">Swedish Train Delay Monitor & Payback Manager</p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
+      <div className="w-full max-w-4xl px-4 sm:px-6 py-6 space-y-6">
+        {/* Top Header Navigation */}
+        <header className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 backdrop-blur-xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden">
+          {/* Ambient Glow Effects */}
+          <div className="absolute -top-20 -left-20 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-        {/* TanStack Router Links */}
-        <nav className="flex space-x-2 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800">
-          <Link
-            to="/"
-            activeProps={{ className: 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20 font-bold' }}
-            inactiveProps={{ className: 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50' }}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-          >
-            ⚡ Live Scanner
-          </Link>
-          <Link
-            to="/stations"
-            activeProps={{ className: 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20 font-bold' }}
-            inactiveProps={{ className: 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50' }}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-          >
-            🚉 Station Explorer
-          </Link>
-          <Link
-            to="/payback"
-            activeProps={{ className: 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20 font-bold' }}
-            inactiveProps={{ className: 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50' }}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-          >
-            💰 Paybacks
-          </Link>
-        </nav>
-      </header>
+          <div className="flex items-center space-x-3.5 relative z-10">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-slate-950 font-black text-lg tracking-wider shrink-0">
+              DW
+            </div>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                Delay Watch <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800">v1.7.9</span>
+              </h1>
+              <p className="text-xs text-slate-400">Swedish Train Delay Monitor & Payback Manager</p>
+            </div>
+          </div>
 
-      {/* Route Outlet */}
-      <main>
-        <Outlet />
-      </main>
+          {/* TanStack Router Links */}
+          <nav className="flex items-center space-x-1 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800/80 relative z-10">
+            <Link
+              to="/"
+              activeProps={{ className: 'bg-gradient-to-r from-cyan-500 to-emerald-400 text-slate-950 font-bold shadow-md shadow-cyan-500/20' }}
+              inactiveProps={{ className: 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' }}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
+            >
+              ⚡ Live Scanner
+            </Link>
+            <Link
+              to="/stations"
+              activeProps={{ className: 'bg-gradient-to-r from-cyan-500 to-emerald-400 text-slate-950 font-bold shadow-md shadow-cyan-500/20' }}
+              inactiveProps={{ className: 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' }}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
+            >
+              🚉 Station Explorer
+            </Link>
+            <Link
+              to="/payback"
+              activeProps={{ className: 'bg-gradient-to-r from-cyan-500 to-emerald-400 text-slate-950 font-bold shadow-md shadow-cyan-500/20' }}
+              inactiveProps={{ className: 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60' }}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
+            >
+              💰 Paybacks
+            </Link>
+          </nav>
+        </header>
+
+        {/* Main Content Container */}
+        <main className="w-full">
+          <Outlet />
+        </main>
+      </div>
     </div>
   ),
 })
