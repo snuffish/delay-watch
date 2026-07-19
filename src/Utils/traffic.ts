@@ -1,10 +1,11 @@
-import fetch from 'node-fetch'
 import { readFromFile } from './file'
 import TrafficInfoObject from '../Views/TrafficInfoObject'
-import { getDate, FORMAT } from './date'
 import StationsData from '../dataStore/Stations.data'
 
 export enum REQUEST_TYPE { FILE, TRAIN, STATION }
+
+const SJ_API_KEY = '39296c1a13304493b44236e1bcb7f544'
+const SJ_TRAFFIC_ENDPOINT = 'https://prod-api.adp.sj.se/public/trafficinfo-api/v2/rest/remarks/announcements'
 
 // Cache station lookup table for O(1) performance
 const stationMap = new Map<string, string>()
@@ -14,21 +15,40 @@ for (const station of StationsData) {
     }
 }
 
-export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = undefined): Promise<TrafficInfoObject> => {
+export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = undefined): Promise<TrafficInfoObject | any> => {
     let data: any = undefined
+
     if (requestType === REQUEST_TYPE.FILE && value !== undefined) {
         data = readFromFile(value)
-    } else if (requestType === REQUEST_TYPE.TRAIN && value !== undefined) {
-        const response = await fetch(`https://services.trafficinfo.sj.se/v4.2/traffic/TrainRoute?callback=sj.apiProxy.jsonpCallbackMiocTrainRoute&AnnouncedTrainNumber=${ value }&FilterCode=DEFAULT`)
-        const buffer = await response.buffer()
-        data = Buffer.from(buffer).toString()
-    } else if (requestType === REQUEST_TYPE.STATION && value !== undefined) {
-        const response = await fetch(`https://services.trafficinfo.sj.se/v4.2/traffic/StationConnections?callback=sj.apiProxy.jsonpCallbackMiocStationConnections&LocationCode=${ value }&DateTime=${ getDate(FORMAT.SJ) }&FilterCode=DEFAULT`)
-        const buffer = await response.buffer()
-        data = Buffer.from(buffer).toString()
-    }
+        return convertToJsonResponse(data)
+    } 
 
-    return convertToJsonResponse(data)
+    try {
+        const httpFetch = typeof globalThis.fetch !== 'undefined' ? globalThis.fetch : (await import('node-fetch')).default as any
+        const response = await httpFetch(`${SJ_TRAFFIC_ENDPOINT}?lang=sv`, {
+            headers: {
+                'Ocp-Apim-Subscription-Key': SJ_API_KEY,
+                'Accept': 'application/json',
+                'x-client-name': 'sjse-start-client'
+            }
+        })
+
+        if (!response.ok) {
+            return { LocationCode: value || '', DepartureConnections: [], ArrivalConnections: [], Stations: [], remarks: [] }
+        }
+
+        const json = await response.json()
+        
+        return {
+            LocationCode: value || '',
+            DepartureConnections: json?.remarks || [],
+            ArrivalConnections: json?.remarks || [],
+            Stations: json?.remarks || [],
+            remarks: json?.remarks || []
+        }
+    } catch {
+        return { LocationCode: value || '', DepartureConnections: [], ArrivalConnections: [], Stations: [], remarks: [] }
+    }
 }
 
 export const getStationName = (locationCode: string): string => {
@@ -38,10 +58,6 @@ export const getStationName = (locationCode: string): string => {
 
 const convertToJsonResponse = (data: string): any => {
     if (!data) return {}
-    data = data.replace('sj.apiProxy.jsonpCallbackMiocStationConnections(', '')
-        .replace('sj.apiProxy.jsonpCallbackMiocTrainRoute(', '')
-        .replace(');', '')
-
     try {
         return JSON.parse(data)
     } catch {

@@ -22,8 +22,8 @@ export const timeDifference = (startTime: string, stopTime: string): number => {
     if (!startTime || !stopTime) return 0
     
     const today = getDate(FORMAT.DATE)
-    const start = moment(`${ today } ${ startTime }`, `${ FORMAT.DATE } HH:mm`)
-    const stop = moment(`${ today } ${ stopTime }`, `${ FORMAT.DATE } HH:mm`)
+    const start = moment(`${ today } ${ startTime }`, `${ FORMAT.DATE } HH:mm`, true)
+    const stop = moment(`${ today } ${ stopTime }`, `${ FORMAT.DATE } HH:mm`, true)
     
     if (!start.isValid() || !stop.isValid()) return 0
 

@@ -8,6 +8,16 @@ import chalk from 'chalk'
 type MultiBar = cliProgress.MultiBar | undefined
 interface ProgressBar extends cliProgress.SingleBar { value?: number }
 
+export const getStationUrl = (stationName: string, date: string = getDate(FORMAT.DATE)): string => {
+    const encodedName = encodeURIComponent(stationName)
+    const queryName = encodedName.replace(/%20/g, '+')
+    return `https://www.sj.se/trafikinformation/station/${encodedName}?station=${queryName}&date=${date}`
+}
+
+export const getTrainUrl = (trainNumber: string, date: string = getDate(FORMAT.DATE)): string => {
+    return `https://www.sj.se/trafikinformation/tag/${trainNumber}?date=${date}`
+}
+
 export class Trip {
     AnnouncedTrainNumber: string
     Operator: string
@@ -28,7 +38,7 @@ export class Trip {
         this.StartLocationName = getStationName(this.StartLocationCode)
         this.FinalLocationName = getStationName(this.FinalLocationCode)
 
-        this.url = `https://www2.sj.se/sv/trafikinfo/trafiken-idag.html/search/${this.AnnouncedTrainNumber}/Date/${getDate(FORMAT.DATE)}`
+        this.url = getTrainUrl(this.AnnouncedTrainNumber)
 
         if (Array.isArray(data.Stations)) {
             this.addStations(data.Stations)
