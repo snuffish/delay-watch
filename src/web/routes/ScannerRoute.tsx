@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import StationsData from '../../dataStore/Stations.data'
+import StationsData from '../../dataStore/stations.json'
+import { useSelectedStations } from '../hooks/useSelectedStations'
 
 const getStationUrl = (stationName: string): string => {
   const encodedName = encodeURIComponent(stationName)
@@ -55,7 +56,7 @@ interface StationItem {
 const allStations = StationsData as StationItem[]
 
 export function ScannerRoute() {
-  const [selectedStations, setSelectedStations] = useState<string[]>(['SK', 'G', 'T', 'N', 'JÖ', 'THN'])
+  const { selectedStations, isSelected, addStation, removeStation, clearStations } = useSelectedStations()
   const [delayMinutes, setDelayMinutes] = useState<number>(20)
   const [newCodeInput, setNewCodeInput] = useState<string>('')
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false)
@@ -101,9 +102,9 @@ export function ScannerRoute() {
   const addStationByCode = (codeToAdd: string) => {
     const normalized = codeToAdd.trim().toUpperCase()
     const validStation = allStations.find(s => s.id.toUpperCase() === normalized)
-    
-    if (validStation && !selectedStations.includes(validStation.id.toUpperCase())) {
-      setSelectedStations([...selectedStations, validStation.id.toUpperCase()])
+
+    if (validStation && !isSelected(validStation.id)) {
+      addStation(validStation.id)
       setNewCodeInput('')
       setIsDropdownOpen(false)
       setHighlightedIndex(0)
@@ -115,7 +116,7 @@ export function ScannerRoute() {
   }
 
   const handleRemoveStation = (code: string) => {
-    setSelectedStations(selectedStations.filter(s => s !== code))
+    removeStation(code)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -192,7 +193,7 @@ export function ScannerRoute() {
           <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
             <span>Selected Stations ({selectedStations.length}):</span>
             {selectedStations.length > 0 && (
-              <button onClick={() => setSelectedStations([])} className="text-slate-500 hover:text-slate-300 transition">Clear all</button>
+              <button onClick={() => clearStations()} className="text-slate-500 hover:text-slate-300 transition">Clear all</button>
             )}
           </div>
           <div className="flex flex-wrap gap-2 min-h-[42px] p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80">
@@ -552,11 +553,15 @@ export function ScannerRoute() {
                                           <div className="flex items-center justify-between px-1">
                                             <span className="text-slate-500 font-medium">Arrival:</span>
                                             {arrSched ? (
-                                              <div className="font-mono flex items-center gap-1.5">
-                                                <span className="text-slate-400 line-through">{arrSched}</span>
-                                                <span className="text-cyan-400 font-bold">&rarr;</span>
-                                                <span className={arrReal !== arrSched ? 'text-rose-400 font-bold' : 'text-slate-200'}>{arrReal}</span>
-                                              </div>
+                                              arrReal !== arrSched ? (
+                                                <div className="font-mono flex items-center gap-1.5">
+                                                  <span className="text-slate-400 line-through">{arrSched}</span>
+                                                  <span className="text-cyan-400 font-bold">&rarr;</span>
+                                                  <span className="text-rose-400 font-bold">{arrReal}</span>
+                                                </div>
+                                              ) : (
+                                                <span className="font-mono text-slate-200">{arrSched}</span>
+                                              )
                                             ) : (
                                               <span className="text-slate-600 font-mono">Origin Station</span>
                                             )}
@@ -566,11 +571,15 @@ export function ScannerRoute() {
                                           <div className="flex items-center justify-between px-1">
                                             <span className="text-slate-500 font-medium">Departure:</span>
                                             {depSched ? (
-                                              <div className="font-mono flex items-center gap-1.5">
-                                                <span className="text-slate-400 line-through">{depSched}</span>
-                                                <span className="text-cyan-400 font-bold">&rarr;</span>
-                                                <span className={depReal !== depSched ? 'text-rose-400 font-bold' : 'text-slate-200'}>{depReal}</span>
-                                              </div>
+                                              depReal !== depSched ? (
+                                                <div className="font-mono flex items-center gap-1.5">
+                                                  <span className="text-slate-400 line-through">{depSched}</span>
+                                                  <span className="text-cyan-400 font-bold">&rarr;</span>
+                                                  <span className="text-rose-400 font-bold">{depReal}</span>
+                                                </div>
+                                              ) : (
+                                                <span className="font-mono text-slate-200">{depSched}</span>
+                                              )
                                             ) : (
                                               <span className="text-slate-600 font-mono">Final Station</span>
                                             )}

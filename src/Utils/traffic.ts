@@ -1,14 +1,73 @@
 import { readFromFile } from './file'
 import TrafficInfoObject from '../Views/TrafficInfoObject'
-import StationsData from '../dataStore/Stations.data'
+import StationsData from '../dataStore/stations.json'
 
-import { getDate, FORMAT } from './date'
+import { getDate, FORMAT, timeDifference } from './date'
 
 export enum REQUEST_TYPE { FILE, TRAIN, STATION }
 
 const SJ_API_KEY = '39296c1a13304493b44236e1bcb7f544'
-const SJ_NEXT_CONNECTIONS_ENDPOINT = 'https://prod-api.adp.sj.se/trafficinfo-api/v2/nextconnections/location'
-const SJ_TRAFFIC_ENDPOINT = 'https://prod-api.adp.sj.se/public/trafficinfo-api/v2/rest/remarks/announcements'
+const SJ_REST_BASE = 'https://prod-api.adp.sj.se/public/trafficinfo-api/v2/rest'
+const SJ_CONNECTIONS_ENDPOINT = `${SJ_REST_BASE}/connections`
+const SJ_TRAIN_ROUTES_ENDPOINT = `${SJ_REST_BASE}/train-routes`
+const SJ_TRAFFIC_ENDPOINT = `${SJ_REST_BASE}/remarks/announcements`
+
+const SJ_HEADERS = {
+    'Ocp-Apim-Subscription-Key': SJ_API_KEY,
+    'Accept': 'application/json',
+    'x-client-name': 'sjse-start-client'
+}
+
+// Extract "HH:MM" from SJ timestamps, which come as either "YYYY-MM-DDTHH:MM:SS"
+// (connections) or "YYYY-MM-DD HH:MM" (train-routes).
+const extractClock = (dateTime: string | null | undefined): string => {
+    if (!dateTime) return ''
+    const timePart = dateTime.includes('T') ? dateTime.split('T')[1] : dateTime.split(' ')[1]
+    return (timePart || '').slice(0, 5)
+}
+
+// Map an SJ train-routes response into the Stations shape the Trip view model expects.
+const mapTrainRoute = (json: any, trainNumber: string): any => {
+    const rawStations: any[] = Array.isArray(json?.stations) ? json.stations : []
+
+    const Stations = rawStations.map((st: any) => {
+        const toInfo = (leg: any) => leg ? {
+            Time: extractClock(leg.originalTime),
+            RealTime: extractClock(leg.currentTime),
+            IsDelayed: !!leg.delayed,
+            IsCancelled: !!leg.cancelled
+        } : undefined
+
+        const Arrival = toInfo(st.arrival)
+        const Departure = toInfo(st.departure)
+        const leg = Departure || Arrival
+        const MinutesDelay = leg ? timeDifference(leg.Time, leg.RealTime) : 0
+
+        return {
+            LocationCode: st.locationCode || '',
+            LocationName: st.name || getStationName(st.locationCode || ''),
+            IsDelayed: !!st.delayed,
+            IsCancelled: !!st.cancelled,
+            MinutesDelay,
+            Arrival,
+            Departure
+        }
+    })
+
+    const first = rawStations[0]
+    const last = rawStations[rawStations.length - 1]
+
+    return {
+        AnnouncedTrainNumber: json?.trainNumber || trainNumber,
+        trainNumber: json?.trainNumber || trainNumber,
+        InformationOwner: json?.informationOwner || '',
+        TransportType: json?.vehicle || json?.transportType || '',
+        StartDepartureLocationCode: first?.locationCode || '',
+        FinalDestinationLocationCode: last?.locationCode || '',
+        Stations,
+        remarks: []
+    }
+}
 
 // Cache station lookup table for O(1) performance
 const stationMap = new Map<string, string>()
@@ -32,15 +91,9 @@ export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = unde
         try {
             const stationName = getStationName(value) || value
             const dateStr = getDate(FORMAT.DATE)
-            const url = `${SJ_NEXT_CONNECTIONS_ENDPOINT}?location=${encodeURIComponent(stationName)}&date=${dateStr}&lang=sv-SE&allDay=true`
-            
-            const response = await httpFetch(url, {
-                headers: {
-                    'Ocp-Apim-Subscription-Key': SJ_API_KEY,
-                    'Accept': 'application/json',
-                    'x-client-name': 'sjse-start-client'
-                }
-            })
+            const url = `${SJ_CONNECTIONS_ENDPOINT}?location=${encodeURIComponent(stationName)}&date=${dateStr}&lang=sv-SE`
+
+            const response = await httpFetch(url, { headers: SJ_HEADERS })
 
             if (response.ok) {
                 const json = await response.json()
@@ -63,18 +116,30 @@ export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = unde
                 }
             }
         } catch {
-            // Proceed to fallback
+            // Proceed to empty result
+        }
+    }
+
+    if (requestType === REQUEST_TYPE.TRAIN && value) {
+        try {
+            const dateStr = getDate(FORMAT.DATE)
+            const url = `${SJ_TRAIN_ROUTES_ENDPOINT}?transportId=${encodeURIComponent(String(value))}&lang=sv-SE&date=${dateStr}`
+
+            const response = await httpFetch(url, { headers: SJ_HEADERS })
+
+            if (response.ok) {
+                const json = await response.json()
+                if (Array.isArray(json?.stations) && json.stations.length > 0) {
+                    return mapTrainRoute(json, String(value))
+                }
+            }
+        } catch {
+            // Proceed to empty result
         }
     }
 
     try {
-        const response = await httpFetch(`${SJ_TRAFFIC_ENDPOINT}?lang=sv`, {
-            headers: {
-                'Ocp-Apim-Subscription-Key': SJ_API_KEY,
-                'Accept': 'application/json',
-                'x-client-name': 'sjse-start-client'
-            }
-        })
+        const response = await httpFetch(`${SJ_TRAFFIC_ENDPOINT}?lang=sv`, { headers: SJ_HEADERS })
 
         if (response.ok) {
             const json = await response.json()
@@ -89,235 +154,10 @@ export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = unde
             }
         }
     } catch {
-        // Proceed to fallback data
-    }
-
-    // Fallback station connections for server/offline mode when live SJ API returns 502/empty
-    if (requestType === REQUEST_TYPE.STATION && value) {
-        return getFallbackStationTraffic(value)
+        // Proceed to empty result
     }
 
     return { LocationCode: value || '', DepartureConnections: [], ArrivalConnections: [], Stations: [], remarks: [] }
-}
-
-export const generateTrainRouteStations = (
-    startCode: string = 'G',
-    finalCode: string = 'CST',
-    currentCode: string = 'SK',
-    origTime: string = '10:00',
-    estTime: string = '10:25',
-    delayMinutes: number = 25
-): any[] => {
-    startCode = startCode.toUpperCase()
-    finalCode = finalCode.toUpperCase()
-    currentCode = currentCode.toUpperCase()
-
-    // Key Swedish main line route templates
-    const routePresets: Record<string, string[]> = {
-        'G-CST': ['G', 'A', 'HR', 'F', 'SK', 'T', 'H', 'K', 'CST'],
-        'CST-G': ['CST', 'K', 'H', 'T', 'SK', 'F', 'HR', 'A', 'G'],
-        'SK-G': ['SK', 'F', 'HR', 'A', 'G'],
-        'G-SK': ['G', 'A', 'HR', 'F', 'SK']
-    }
-
-    const key = `${startCode}-${finalCode}`
-    let stops = routePresets[key]
-
-    if (!stops) {
-        stops = Array.from(new Set([startCode, currentCode, finalCode].filter(Boolean)))
-    }
-
-    const [baseH, baseM] = (origTime || '10:00').split(':').map(Number)
-    const startTotalMin = (isNaN(baseH) ? 10 : baseH) * 60 + (isNaN(baseM) ? 0 : baseM)
-
-    return stops.map((code, idx) => {
-        const schedTimeMin = startTotalMin + idx * 25
-        const realTimeMin = schedTimeMin + (idx >= stops.indexOf(currentCode) ? delayMinutes : Math.min(delayMinutes, idx * 5))
-
-        const formatClock = (m: number) => {
-            const h = Math.floor((m / 60) % 24).toString().padStart(2, '0')
-            const min = Math.floor(m % 60).toString().padStart(2, '0')
-            return `${h}:${min}`
-        }
-
-        const isDelayed = realTimeMin > schedTimeMin
-        const nodeDelay = realTimeMin - schedTimeMin
-
-        return {
-            LocationCode: code,
-            LocationName: getStationName(code),
-            IsDelayed: isDelayed,
-            IsCancelled: false,
-            MinutesDelay: nodeDelay,
-            Arrival: {
-                Time: formatClock(schedTimeMin - 2),
-                RealTime: formatClock(realTimeMin - 2),
-                IsDelayed: isDelayed
-            },
-            Departure: {
-                Time: formatClock(schedTimeMin),
-                RealTime: formatClock(realTimeMin),
-                IsDelayed: isDelayed
-            }
-        }
-    })
-}
-
-const getFallbackStationTraffic = (value: string): TrafficInfoObject => {
-    const locId = value.toUpperCase()
-    const locName = getStationName(locId)
-    const today = getDate(FORMAT.DATE)
-
-    const mockConnections: Record<string, any[]> = {
-        'SK': [
-            {
-                trainNumber: '430',
-                operator: 'SJ',
-                currentDateTime: `${today}T12:07:00`,
-                originalDateTime: `${today}T11:28:00`,
-                departureDate: today,
-                station: 'Göteborg C',
-                currentTrack: '1',
-                transportType: 'SJ Snabbtåg',
-                delayed: true,
-                cancelled: false,
-                remarks: [
-                    { id: 'remark.has.arrived', level: 1, information: 'Har ankommit' },
-                    { id: 'ANA050', level: 0, information: 'Signalfel' }
-                ],
-                xodRemarks: []
-            },
-            {
-                trainNumber: '425',
-                operator: 'SJ',
-                currentDateTime: `${today}T10:35:00`,
-                originalDateTime: `${today}T10:20:00`,
-                departureDate: today,
-                station: 'Stockholm C',
-                currentTrack: '2',
-                transportType: 'SJ Snabbtåg',
-                delayed: true,
-                cancelled: false,
-                remarks: [
-                    { id: 'remark.has.arrived', level: 1, information: 'Har ankommit' },
-                    { id: 'ANA063', level: 0, information: 'Tågkö' }
-                ],
-                xodRemarks: []
-            }
-        ],
-        'G': [
-            {
-                trainNumber: '434',
-                operator: 'SJ',
-                currentDateTime: `${today}T14:13:00`,
-                originalDateTime: `${today}T13:28:00`,
-                departureDate: today,
-                station: 'Stockholm C',
-                currentTrack: '1',
-                transportType: 'SJ Snabbtåg',
-                delayed: true,
-                cancelled: false,
-                remarks: [
-                    { id: 'remark.has.arrived', level: 1, information: 'Har ankommit' },
-                    { id: 'ANA050', level: 0, information: 'Signalfel' }
-                ],
-                xodRemarks: []
-            }
-        ],
-        'T': [
-            {
-                trainNumber: '3407',
-                operator: 'Västtrafik',
-                currentDateTime: `${today}T01:33:00`,
-                originalDateTime: `${today}T01:15:00`,
-                departureDate: today,
-                station: 'Töreboda',
-                currentTrack: '1',
-                transportType: 'Västtågen',
-                delayed: true,
-                cancelled: false,
-                remarks: [
-                    { id: 'remark.has.arrived', level: 1, information: 'Har ankommit' }
-                ],
-                xodRemarks: []
-            }
-        ],
-        'N': [
-            {
-                trainNumber: '7220',
-                operator: 'Västtrafik',
-                currentDateTime: `${today}T12:25:00`,
-                originalDateTime: `${today}T12:02:00`,
-                departureDate: today,
-                station: 'Nässjö C',
-                currentTrack: '3b',
-                transportType: 'Västtågen',
-                delayed: true,
-                cancelled: false,
-                remarks: [
-                    { id: 'remark.has.arrived', level: 1, information: 'Har ankommit' },
-                    { id: 'ANA064', level: 0, information: 'Tågmöte' }
-                ],
-                xodRemarks: []
-            }
-        ],
-        'THN': [
-            {
-                trainNumber: '7034',
-                operator: 'Tågab',
-                currentDateTime: `${today}T18:09:00`,
-                originalDateTime: `${today}T17:25:00`,
-                departureDate: today,
-                station: 'Stockholm Central',
-                currentTrack: '2',
-                transportType: 'Tågab',
-                delayed: true,
-                cancelled: false,
-                remarks: [
-                    { id: 'remark.has.arrived', level: 1, information: 'Har ankommit' }
-                ],
-                xodRemarks: []
-            }
-        ]
-    }
-
-    const connections = mockConnections[locId] || [
-        {
-            trainNumber: '10174',
-            operator: 'SJ',
-            currentDateTime: `${today}T12:17:00`,
-            originalDateTime: `${today}T12:07:00`,
-            departureDate: today,
-            station: locName,
-            currentTrack: '1',
-            transportType: 'SJ Regional',
-            delayed: true,
-            cancelled: false,
-            remarks: [
-                { id: 'remark.has.arrived', level: 1, information: 'Har ankommit' },
-                { id: 'ANA063', level: 0, information: 'Tågkö' }
-            ],
-            xodRemarks: [
-                {
-                    header: 'Tåget är inställt mellan Göteborg C och Alingsås på grund av banarbete',
-                    content: 'Bussar ersätter tåget mellan Göteborg C och Alingsås.'
-                }
-            ]
-        }
-    ]
-
-    return {
-        LocationCode: value || locId,
-        LocationName: locName,
-        locationId: locId,
-        locationName: locName,
-        DepartureConnections: connections,
-        ArrivalConnections: connections,
-        departureConnections: connections,
-        arrivalConnections: connections,
-        Stations: [],
-        remarks: []
-    }
 }
 
 export const getStationName = (locationCode: string): string => {

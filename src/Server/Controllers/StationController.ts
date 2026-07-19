@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import StationsData from '../../dataStore/Stations.data'
+import StationsData from '../../dataStore/stations.json'
 
 const locationsData = StationsData.map(({ id, name, country }: any) => {
     return { id, name, country }

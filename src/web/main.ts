@@ -1,4 +1,4 @@
-import StationsData from '../dataStore/Stations.data'
+import StationsData from '../dataStore/stations.json'
 
 interface StationItem {
   id: string

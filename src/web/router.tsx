@@ -1,8 +1,15 @@
-import React from 'react'
+import React, { Suspense } from 'react'
 import { createRootRoute, createRoute, createRouter, Link, Outlet } from '@tanstack/react-router'
 import { ScannerRoute } from './routes/ScannerRoute'
 import { StationsRoute } from './routes/StationsRoute'
 import { PaybackRoute } from './routes/PaybackRoute'
+
+// Router DevTools — lazy-loaded in development only, so it's excluded from production builds.
+const TanStackRouterDevtools = process.env.NODE_ENV === 'production'
+  ? () => null
+  : React.lazy(() =>
+      import('@tanstack/react-router-devtools').then((m) => ({ default: m.TanStackRouterDevtools }))
+    )
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -60,6 +67,10 @@ const rootRoute = createRootRoute({
           <Outlet />
         </main>
       </div>
+
+      <Suspense>
+        <TanStackRouterDevtools position="bottom-right" />
+      </Suspense>
     </div>
   ),
 })

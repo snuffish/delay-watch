@@ -13974,5 +13974,405 @@
         "lon": "12.2725773734682",
         "id": "ÖX",
         "lat": "58.3567869968613"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Bad Gastein",
+        "lon": "13.13198799875665",
+        "id": "AT.BAD",
+        "lat": "47.11182000332733"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Innsbruck",
+        "lon": "11.401397005325137",
+        "id": "AT.INN",
+        "lat": "47.264537001407085"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Borlänge C",
+        "lon": "15.425472110792883",
+        "id": "BLGC",
+        "lat": "60.48294313144746"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Borås C",
+        "lon": "12.931025002212843",
+        "id": "BSC",
+        "lat": "57.72033164396432"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Hamburg-Altona",
+        "lon": "9.934799998256658",
+        "id": "DE.AA",
+        "lat": "53.552599997010944"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Hamburg-Bergedorf",
+        "lon": "10.206300004955878",
+        "id": "DE.ABG",
+        "lat": "53.48980000060911"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Hamburg Hbf",
+        "lon": "10.0064000025503",
+        "id": "DE.AH",
+        "lat": "53.553500002327766"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Pinneberg",
+        "lon": "9.79266388744322",
+        "id": "DE.AP",
+        "lat": "53.652663886627636"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Berlin-Gesundbrunnen",
+        "lon": "13.391000003149918",
+        "id": "DE.BGS",
+        "lat": "52.548800001056044"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Berlin Hbf",
+        "lon": "13.36920000554153",
+        "id": "DE.BL",
+        "lat": "52.52520000048581"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Berlin-Lichtenberg",
+        "lon": "13.496495769114603",
+        "id": "DE.BLO",
+        "lat": "52.50969701549789"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Berlin Schönefeld",
+        "lon": "13.513397403312286",
+        "id": "DE.BSC",
+        "lat": "52.391499524073446"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Berlin Zoo. Garten",
+        "lon": "13.33239999763218",
+        "id": "DE.BZO",
+        "lat": "52.50730000438763"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Dresden",
+        "lon": "13.731299999944536",
+        "id": "DE.DH",
+        "lat": "51.040099997370156"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "Hamburg-Harburg",
+        "lon": "9.991800007597488",
+        "id": "DE.HAR",
+        "lat": "53.456299995992495"
+    },
+    {
+        "country": "DE",
+        "isForPresentation": false,
+        "name": "München",
+        "lon": "11.558699994483186",
+        "id": "DE.MH",
+        "lat": "48.14009999713015"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Fredericia",
+        "lon": "9.740177996977543",
+        "id": "DK.FA",
+        "lat": "55.568273996393714"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Höje Taastrup",
+        "lon": "12.269822994566873",
+        "id": "DK.HTÅ",
+        "lat": "55.64853600317027"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Kolding",
+        "lon": "9.48136599927888",
+        "id": "DK.KD",
+        "lat": "55.49064999511012"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Koege Nord",
+        "lon": "12.172606954617665",
+        "id": "DK.KJN",
+        "lat": "55.499597639053185"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Nörreport",
+        "lon": "12.572367005437858",
+        "id": "DK.KN",
+        "lat": "55.68373199768275"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Köpenhamn syd",
+        "lon": "12.51619700465362",
+        "id": "DK.NEL",
+        "lat": "55.652363997373314"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Odense",
+        "lon": "10.38534700445697",
+        "id": "DK.OD",
+        "lat": "55.402516000212465"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Padborg",
+        "lon": "9.359178000309901",
+        "id": "DK.PA",
+        "lat": "54.82345999269028"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Ringsted",
+        "lon": "11.78663699999406",
+        "id": "DK.RG",
+        "lat": "55.43819100360002"
+    },
+    {
+        "country": "DK",
+        "isForPresentation": false,
+        "name": "Örestad",
+        "lon": "12.579248003904242",
+        "id": "DK.ÖRE",
+        "lat": "55.62839500245432"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Furulund",
+        "lon": "13.097179190413806",
+        "id": "FUD",
+        "lat": "55.7750887238121"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Göteborgs Haga",
+        "lon": "11.961048871524952",
+        "id": "GHG",
+        "lat": "57.69988358220962"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Gällivare C",
+        "lon": "20.651074492530242",
+        "id": "GVC",
+        "lat": "67.13332488381957"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Herrljunga C",
+        "lon": "13.020948677544308",
+        "id": "HRC",
+        "lat": "58.07905700239791"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Klostergården",
+        "lon": "13.17116184603064",
+        "id": "KGÅ",
+        "lat": "55.69437622326718"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Kalix Västra",
+        "lon": "23.14306886467515",
+        "id": "KLXV",
+        "lat": "65.86487409316338"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Kristinebergsbadet",
+        "lon": "15.883174725875621",
+        "id": "KRE",
+        "lat": "57.5128022168003"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Karlstad C",
+        "lon": "13.499025358175766",
+        "id": "KSC",
+        "lat": "59.37789092716515"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Korsvägen",
+        "lon": "11.98910562220826",
+        "id": "KVN",
+        "lat": "57.696797621696575"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Lomma",
+        "lon": "13.07439071453237",
+        "id": "LMA",
+        "lat": "55.67099445797378"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": true,
+        "name": "Malmö C",
+        "lon": "13.00022975756153",
+        "id": "MC",
+        "lat": "55.60971819521705"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Mora C",
+        "lon": "14.559096089924193",
+        "id": "MRC",
+        "lat": "61.00871230341528"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Njurundabommen",
+        "lon": "17.377428445570636",
+        "id": "NJB",
+        "lat": "62.267506871008635"
+    },
+    {
+        "country": "NO",
+        "isForPresentation": false,
+        "name": "Bjørnfjell",
+        "lon": "18.07108673129923",
+        "id": "NO.BJF",
+        "lat": "68.43214637902534"
+    },
+    {
+        "country": "NO",
+        "isForPresentation": false,
+        "name": "Hell",
+        "lon": "10.899439999130413",
+        "id": "NO.HEL",
+        "lat": "63.446059998783966"
+    },
+    {
+        "country": "NO",
+        "isForPresentation": false,
+        "name": "Ski",
+        "lon": "10.83473000449833",
+        "id": "NO.SKI",
+        "lat": "59.719158002258794"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Nynäshamn",
+        "lon": "17.949664190211806",
+        "id": "NYC",
+        "lat": "58.90022886142007"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Oxberg",
+        "lon": "14.172544022991229",
+        "id": "OXB",
+        "lat": "61.129862418855275"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Svalöv",
+        "lon": "13.11051704792555",
+        "id": "SAL",
+        "lat": "55.913514218592205"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Varberg C",
+        "lon": "12.24959250253579",
+        "id": "VBC",
+        "lat": "57.112653609535414"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Värnamo C",
+        "lon": "14.035995977128433",
+        "id": "VÄC",
+        "lat": "57.18637858374057"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Arninge",
+        "lon": "18.14115552924884",
+        "id": "XARE",
+        "lat": "59.458594803975295"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Faringe",
+        "lon": "18.114658684281057",
+        "id": "XFRG",
+        "lat": "59.920006287218996"
+    },
+    {
+        "country": "SE",
+        "isForPresentation": false,
+        "name": "Hultsfreds Hembygdspark",
+        "lon": "15.861882830996661",
+        "id": "XHFH",
+        "lat": "57.49614186406972"
     }
 ]

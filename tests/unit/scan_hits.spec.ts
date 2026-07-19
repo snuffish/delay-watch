@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { Trip, ScanLocation, getStationUrl, getTrainUrl } from '../../src/ScanLocation'
 import * as trafficUtils from '../../src/Utils/traffic'
-import { mockStationTrafficPayload, mockTrainTrafficPayload } from '../mocks'
+import { mockStationTrafficPayload, mockTrainTrafficPayload, mockNextConnectionsPayload } from '../mocks'
 
 test.describe('Scanner Hit & Delay Detection Unit Tests', () => {
 
@@ -106,6 +106,32 @@ test.describe('Scanner Hit & Delay Detection Unit Tests', () => {
       expect(trip?.AnnouncedTrainNumber).toBe('430')
       expect(trip?.MinutesDelay).toBe(39)
       expect(trip?.Operator).toBe('SJ')
+    } finally {
+      (trafficUtils as any).getTrafficInfo = originalGetTrafficInfo
+    }
+  })
+
+  test('should build a Trip from a connection payload without synthesizing route stations', async () => {
+    const originalGetTrafficInfo = trafficUtils.getTrafficInfo
+    try {
+      (trafficUtils as any).getTrafficInfo = async (type: any) => {
+        if (type === trafficUtils.REQUEST_TYPE.STATION) return mockNextConnectionsPayload as any
+        // Per-train detail returns no Stations route
+        return {} as any
+      }
+
+      const scanResult = await ScanLocation('HR', 20)
+
+      expect(scanResult?.Trips.length).toBe(1)
+
+      const trip = scanResult?.Trips[0]
+      expect(trip?.AnnouncedTrainNumber).toBe('10174')
+      expect(trip?.Operator).toBe('SJ')
+      expect(trip?.MinutesDelay).toBe(25)
+      expect(trip?.Remarks.length).toBe(2)
+      expect(trip?.XodRemarks[0].header).toContain('inställt')
+      // No real station data in the payload → no synthetic route is generated
+      expect(trip?.Stations.length).toBe(0)
     } finally {
       (trafficUtils as any).getTrafficInfo = originalGetTrafficInfo
     }

@@ -48,6 +48,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.45.0",
+    "@tanstack/react-query-devtools": "^5.101.2",
+    "@tanstack/react-router-devtools": "^1.167.0",
     "@types/chalk": "^2.2.0",
     "@types/cli-progress": "^3.4.2",
     "@types/commander": "^2.12.2",

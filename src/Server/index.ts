@@ -7,7 +7,13 @@ import DefaultController from './Controllers/DefaultController'
 import { $PAYBACK_FILE } from '../FilePaths'
 import { getJsonFile } from '../Utils/file'
 
-export const createApp = (): express.Express => {
+interface CreateAppOptions {
+    // Serve the built frontend from dist/. Disable when mounted inside the Vite
+    // dev server, otherwise the static build shadows Vite's source pipeline/HMR.
+    serveStatic?: boolean
+}
+
+export const createApp = ({ serveStatic = true }: CreateAppOptions = {}): express.Express => {
     const app: express.Express = express()
     
     app.use(express.json())
@@ -39,16 +45,20 @@ export const createApp = (): express.Express => {
         res.json({ paybacks, totalPayback, count: paybacks.length })
     })
 
-    // Serve static frontend build if dist folder exists
-    const distPath = path.resolve(__dirname, '../../dist')
-    if (fs.existsSync(distPath)) {
-        app.use(express.static(distPath))
-        app.get('*', (req, res, next) => {
-            if (req.path.startsWith('/api')) return next()
-            res.sendFile(path.join(distPath, 'index.html'))
-        })
-    } else {
-        app.get('/', DefaultController)
+    // Frontend serving is for production/standalone only. When mounted inside the
+    // Vite dev server (serveStatic: false) we register no '/' or catch-all handler,
+    // so requests fall through to Vite's source pipeline + HMR.
+    if (serveStatic) {
+        const distPath = path.resolve(__dirname, '../../dist')
+        if (fs.existsSync(distPath)) {
+            app.use(express.static(distPath))
+            app.get('*', (req, res, next) => {
+                if (req.path.startsWith('/api')) return next()
+                res.sendFile(path.join(distPath, 'index.html'))
+            })
+        } else {
+            app.get('/', DefaultController)
+        }
     }
 
     return app

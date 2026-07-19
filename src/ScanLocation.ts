@@ -1,4 +1,4 @@
-import { getTrafficInfo, REQUEST_TYPE, getStationName, generateTrainRouteStations } from './Utils/traffic'
+import { getTrafficInfo, REQUEST_TYPE, getStationName } from './Utils/traffic'
 import { getDate, FORMAT, timeDifference } from './Utils/date'
 import cliProgress from 'cli-progress'
 import StationView from './Views/StationView'
@@ -72,18 +72,8 @@ export class Trip {
 
         if (Array.isArray(data.Stations) && data.Stations.length > 0) {
             this.addStations(data.Stations)
-        } else {
-            // Synthesize train route station stops if missing from payload
-            const generatedStops = generateTrainRouteStations(
-                this.StartLocationCode || 'G',
-                this.FinalLocationCode || 'CST',
-                currentStationName || this.StartLocationCode || 'SK',
-                this.OriginalTime || '10:00',
-                this.EstimatedTime || '10:25',
-                this.MinutesDelay || 25
-            )
-            this.addStations(generatedStops)
         }
+        // else: no real station data available — leave Stations empty (no synthetic route)
     }
 
     private addStations(stations: any[]): void {
@@ -121,14 +111,46 @@ export interface Scan {
     Trips: Trip[]
 }
 
+// Delay of a train at the scanned station, from the connection board's full timestamps.
+// Using the complete datetimes (not just HH:MM) yields a correct signed delay across
+// midnight and reports early trains as negative rather than a ~24h wraparound.
+const connectionDelay = (conn: any): number => {
+    if (!conn?.originalDateTime || !conn?.currentDateTime) return 0
+    const orig = new Date(conn.originalDateTime).getTime()
+    const curr = new Date(conn.currentDateTime).getTime()
+    if (isNaN(orig) || isNaN(curr)) return 0
+    return Math.round((curr - orig) / 60000)
+}
+
+// Largest delay across a train's route, considering both arrival and departure legs.
+const routeDelay = (trip: Trip): number => {
+    let max = 0
+    for (const station of trip.Stations) {
+        for (const leg of [station.Arrival, station.Departure]) {
+            if (leg?.Time && leg?.RealTime) {
+                max = Math.max(max, timeDifference(leg.Time, leg.RealTime))
+            }
+        }
+    }
+    return max
+}
+
 export const ScanLocation = async (locationCode: string, delayMinutes: number = 20, multiBar: MultiBar = undefined): Promise<Scan | undefined> => {
     locationCode = locationCode.toUpperCase()
     let stationTrafficData = await getTrafficInfo(REQUEST_TYPE.STATION, locationCode)
     
     const departureConnections = stationTrafficData?.DepartureConnections || stationTrafficData?.departureConnections || []
     const arrivalConnections = stationTrafficData?.ArrivalConnections || stationTrafficData?.arrivalConnections || []
-    
-    const allConnections = departureConnections.length > 0 ? departureConnections : arrivalConnections
+
+    // A delayed train at this station may be an arrival OR a departure; a through-train
+    // appears in both boards, so merge and de-duplicate by train number.
+    const seenConnTrains = new Set<string>()
+    const allConnections = [...departureConnections, ...arrivalConnections].filter((c: any) => {
+        const tn = c.AnnouncedTrainNumber || c.trainNumber
+        if (!tn || seenConnTrains.has(tn)) return false
+        seenConnTrains.add(tn)
+        return true
+    })
     let announcedTrainNumbers = allConnections.map((train: any) => train.AnnouncedTrainNumber || train.trainNumber).filter(Boolean)
 
     let trips: Trip[] = []
@@ -146,40 +168,22 @@ export const ScanLocation = async (locationCode: string, delayMinutes: number = 
         const trainNumber = conn.AnnouncedTrainNumber || conn.trainNumber
         if (!trainNumber) continue
 
-        let trainTrafficData = await getTrafficInfo(REQUEST_TYPE.TRAIN, trainNumber)
-        let trip: Trip
+        const trainTrafficData = await getTrafficInfo(REQUEST_TYPE.TRAIN, trainNumber)
+        const hasRoute = trainTrafficData && Array.isArray(trainTrafficData.Stations) && trainTrafficData.Stations.length > 0
+        const trip = hasRoute ? new Trip(trainTrafficData) : new Trip(conn, getStationName(locationCode))
 
-        if (trainTrafficData && Array.isArray(trainTrafficData.Stations) && trainTrafficData.Stations.length > 0) {
-            trip = new Trip(trainTrafficData)
-            for (const station of trip.Stations) {
-                if (station.IsDelayed && !trips.includes(trip)) {
-                    const dep = station.Departure
-                    const departureTime = dep ? (dep.Time || '') : ''
-                    const departureRealTime = dep ? (dep.RealTime || '') : ''
+        // The delay that matters is the train's delay AT this station, which the connection
+        // board reports directly. Only fall back to the route's largest delay when the
+        // connection carries no timestamps at all (e.g. sparse payloads) — not when the
+        // train is genuinely on time.
+        const hasConnTimes = !!(conn?.originalDateTime && conn?.currentDateTime)
+        let minutesDelay = connectionDelay(conn)
+        if (!hasConnTimes) minutesDelay = routeDelay(trip)
 
-                    const minutesDelay = timeDifference(departureTime, departureRealTime)
-                    if (minutesDelay >= delayMinutes) {
-                        trip.setMinutesDelay(minutesDelay)
-                        trips.push(trip)
-                        break
-                    }
-                }
-            }
-        } else {
-            // Build trip directly from connection item (nextconnections/location payload)
-            trip = new Trip(conn, getStationName(locationCode))
-            let minutesDelay = trip.MinutesDelay
-            if (minutesDelay === 0 && conn.originalDateTime && conn.currentDateTime) {
-                const origTime = conn.originalDateTime.includes('T') ? conn.originalDateTime.split('T')[1].slice(0, 5) : conn.originalDateTime
-                const currTime = conn.currentDateTime.includes('T') ? conn.currentDateTime.split('T')[1].slice(0, 5) : conn.currentDateTime
-                minutesDelay = timeDifference(origTime, currTime)
-                trip.setMinutesDelay(minutesDelay)
-            }
-
-            if ((conn.delayed || minutesDelay >= delayMinutes) && minutesDelay >= delayMinutes) {
-                if (!trips.some(t => t.AnnouncedTrainNumber === trip.AnnouncedTrainNumber)) {
-                    trips.push(trip)
-                }
+        if (minutesDelay >= delayMinutes) {
+            trip.setMinutesDelay(minutesDelay)
+            if (!trips.some(t => t.AnnouncedTrainNumber === trip.AnnouncedTrainNumber)) {
+                trips.push(trip)
             }
         }
 

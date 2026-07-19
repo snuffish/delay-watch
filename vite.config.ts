@@ -6,7 +6,9 @@ function apiMiddlewarePlugin(): Plugin {
   return {
     name: 'api-middleware-plugin',
     configureServer(server) {
-      const app = createApp()
+      // Dev only: mount API routes but never the static dist build, so Vite's
+      // source pipeline + HMR (and the devtools) aren't shadowed.
+      const app = createApp({ serveStatic: false })
       server.middlewares.use(app)
     }
   }
