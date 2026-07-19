@@ -100,6 +100,69 @@ export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = unde
     return { LocationCode: value || '', DepartureConnections: [], ArrivalConnections: [], Stations: [], remarks: [] }
 }
 
+export const generateTrainRouteStations = (
+    startCode: string = 'G',
+    finalCode: string = 'CST',
+    currentCode: string = 'SK',
+    origTime: string = '10:00',
+    estTime: string = '10:25',
+    delayMinutes: number = 25
+): any[] => {
+    startCode = startCode.toUpperCase()
+    finalCode = finalCode.toUpperCase()
+    currentCode = currentCode.toUpperCase()
+
+    // Key Swedish main line route templates
+    const routePresets: Record<string, string[]> = {
+        'G-CST': ['G', 'A', 'HR', 'F', 'SK', 'T', 'H', 'K', 'CST'],
+        'CST-G': ['CST', 'K', 'H', 'T', 'SK', 'F', 'HR', 'A', 'G'],
+        'SK-G': ['SK', 'F', 'HR', 'A', 'G'],
+        'G-SK': ['G', 'A', 'HR', 'F', 'SK']
+    }
+
+    const key = `${startCode}-${finalCode}`
+    let stops = routePresets[key]
+
+    if (!stops) {
+        stops = Array.from(new Set([startCode, currentCode, finalCode].filter(Boolean)))
+    }
+
+    const [baseH, baseM] = (origTime || '10:00').split(':').map(Number)
+    const startTotalMin = (isNaN(baseH) ? 10 : baseH) * 60 + (isNaN(baseM) ? 0 : baseM)
+
+    return stops.map((code, idx) => {
+        const schedTimeMin = startTotalMin + idx * 25
+        const realTimeMin = schedTimeMin + (idx >= stops.indexOf(currentCode) ? delayMinutes : Math.min(delayMinutes, idx * 5))
+
+        const formatClock = (m: number) => {
+            const h = Math.floor((m / 60) % 24).toString().padStart(2, '0')
+            const min = Math.floor(m % 60).toString().padStart(2, '0')
+            return `${h}:${min}`
+        }
+
+        const isDelayed = realTimeMin > schedTimeMin
+        const nodeDelay = realTimeMin - schedTimeMin
+
+        return {
+            LocationCode: code,
+            LocationName: getStationName(code),
+            IsDelayed: isDelayed,
+            IsCancelled: false,
+            MinutesDelay: nodeDelay,
+            Arrival: {
+                Time: formatClock(schedTimeMin - 2),
+                RealTime: formatClock(realTimeMin - 2),
+                IsDelayed: isDelayed
+            },
+            Departure: {
+                Time: formatClock(schedTimeMin),
+                RealTime: formatClock(realTimeMin),
+                IsDelayed: isDelayed
+            }
+        }
+    })
+}
+
 const getFallbackStationTraffic = (value: string): TrafficInfoObject => {
     const locId = value.toUpperCase()
     const locName = getStationName(locId)

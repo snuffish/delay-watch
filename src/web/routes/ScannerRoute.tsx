@@ -9,6 +9,17 @@ const getStationUrl = (stationName: string): string => {
   return `https://www.sj.se/trafikinformation/station/${encodedName}?station=${queryName}&date=${dateStr}`
 }
 
+const calcMinutesDiff = (t1?: string, t2?: string): number | null => {
+  if (!t1 || !t2) return null
+  const [h1, m1] = t1.split(':').map(Number)
+  const [h2, m2] = t2.split(':').map(Number)
+  if (isNaN(h1) || isNaN(m1) || isNaN(h2) || isNaN(m2)) return null
+  let min1 = h1 * 60 + m1
+  let min2 = h2 * 60 + m2
+  if (min2 < min1) min2 += 24 * 60
+  return min2 - min1
+}
+
 interface TripData {
   AnnouncedTrainNumber: string
   Operator: string
@@ -291,7 +302,7 @@ export function ScannerRoute() {
       {scanMutation.isError && (
         <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs flex items-center gap-2">
           <span>⚠️</span>
-          <span>Failed to scan: {scanMutation.error?.message || 'API request failed'}. Ensure Express server is running on port 3000.</span>
+          <span>Failed to scan: {scanMutation.error?.message || 'API request failed'}.</span>
         </div>
       )}
 
@@ -438,20 +449,136 @@ export function ScannerRoute() {
                               </div>
                             )}
 
-                            {/* Route Stop Stations Timeline */}
+                            {/* Route Stop Stations Stepper Timeline */}
                             {trip.Stations && trip.Stations.length > 0 && (
-                              <div className="pt-3 space-y-2">
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Train Route Stations & Stops:</span>
-                                <div className="space-y-1.5">
-                                  {trip.Stations.map((st: any, sIdx: any) => (
-                                    <div key={sIdx} className="flex items-center justify-between bg-slate-950/70 p-2 rounded border border-slate-800 text-xs">
-                                      <span className="font-semibold text-slate-200">{st.LocationName || st.LocationCode}</span>
-                                      <div className="flex items-center gap-3 font-mono text-slate-400 text-[11px]">
-                                        {st.Departure?.Time && <span>{st.Departure.Time} &rarr; <span className="text-rose-400">{st.Departure.RealTime || st.Departure.Time}</span></span>}
-                                        {st.MinutesDelay > 0 && <span className="text-rose-400 font-bold">+{st.MinutesDelay}m</span>}
+                              <div className="pt-3 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Train Route Stations & Stops:</span>
+                                  <span className="text-[10px] font-mono text-slate-500">{trip.Stations.length} station stops</span>
+                                </div>
+
+                                <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-800">
+                                  {trip.Stations.map((st: any, sIdx: number) => {
+                                    const prevStop = sIdx > 0 ? trip.Stations![sIdx - 1] : null
+                                    
+                                    // Calculate inter-station leg duration & delay delta
+                                    let legSchedMin: number | null = null
+                                    let legRealMin: number | null = null
+                                    let legDelayDelta: number | null = null
+
+                                    if (prevStop) {
+                                      const prevDepSched = prevStop.Departure?.Time || prevStop.Arrival?.Time
+                                      const prevDepReal = prevStop.Departure?.RealTime || prevStop.Arrival?.RealTime || prevDepSched
+                                      const currArrSched = st.Arrival?.Time || st.Departure?.Time
+                                      const currArrReal = st.Arrival?.RealTime || st.Departure?.RealTime || currArrSched
+
+                                      legSchedMin = calcMinutesDiff(prevDepSched, currArrSched)
+                                      legRealMin = calcMinutesDiff(prevDepReal, currArrReal)
+
+                                      if (legRealMin !== null && legSchedMin !== null) {
+                                        legDelayDelta = legRealMin - legSchedMin
+                                      }
+                                    }
+
+                                    const arrSched = st.Arrival?.Time
+                                    const arrReal = st.Arrival?.RealTime || arrSched
+                                    const depSched = st.Departure?.Time
+                                    const depReal = st.Departure?.RealTime || depSched
+
+                                    const stopDelay = st.MinutesDelay || 0
+                                    const isCancelled = !!st.IsCancelled
+                                    const stationCode = (st.LocationCode || '').toUpperCase()
+
+                                    return (
+                                      <div key={sIdx} className="relative space-y-2">
+                                        {/* Inter-Station Leg Travel Badge */}
+                                        {prevStop && (
+                                          <div className="-mt-1 mb-2 pl-3 flex items-center gap-2 text-[11px] font-mono text-slate-400">
+                                            <span className="text-slate-600">&ndash;&gt;</span>
+                                            <span className="bg-slate-950 px-2 py-0.5 rounded border border-slate-800/80">
+                                              Leg travel: <strong className="text-slate-200">{legRealMin ?? legSchedMin ?? '--'}m</strong>
+                                              {legSchedMin !== null && legRealMin !== legSchedMin && (
+                                                <span className="text-slate-500 ml-1">(Sched: {legSchedMin}m)</span>
+                                              )}
+                                            </span>
+
+                                            {legDelayDelta !== null && legDelayDelta !== 0 && (
+                                              <span className={`px-2 py-0.5 rounded font-bold border text-[10px] ${
+                                                legDelayDelta > 0 ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                              }`}>
+                                                {legDelayDelta > 0 ? `+${legDelayDelta}m delay gained on leg` : `${legDelayDelta}m recovered on leg`}
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {/* Station Node Badge & Header with StationCode */}
+                                        <div className="flex items-center gap-3">
+                                          <span className={`absolute -left-6 top-0.5 w-5 h-5 rounded-full border flex items-center justify-center text-[10px] font-bold font-mono z-10 ${
+                                            isCancelled
+                                              ? 'bg-rose-950 text-rose-400 border-rose-800'
+                                              : stopDelay > 0
+                                                ? 'bg-rose-950 text-rose-300 border-rose-600'
+                                                : 'bg-slate-900 text-slate-300 border-slate-700'
+                                          }`}>
+                                            {sIdx + 1}
+                                          </span>
+
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-bold text-slate-100">{st.LocationName || stationCode}</span>
+                                            {stationCode && (
+                                              <span className="font-mono font-bold text-xs text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                                                [{stationCode}]
+                                              </span>
+                                            )}
+
+                                            {isCancelled ? (
+                                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Inställt</span>
+                                            ) : stopDelay > 0 ? (
+                                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono">
+                                                +{stopDelay}m delay
+                                              </span>
+                                            ) : (
+                                              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                On time
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Arrival & Departure Comparison Grid */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 text-[11px]">
+                                          {/* Arrival Column */}
+                                          <div className="flex items-center justify-between px-1">
+                                            <span className="text-slate-500 font-medium">Arrival:</span>
+                                            {arrSched ? (
+                                              <div className="font-mono flex items-center gap-1.5">
+                                                <span className="text-slate-400 line-through">{arrSched}</span>
+                                                <span className="text-cyan-400 font-bold">&rarr;</span>
+                                                <span className={arrReal !== arrSched ? 'text-rose-400 font-bold' : 'text-slate-200'}>{arrReal}</span>
+                                              </div>
+                                            ) : (
+                                              <span className="text-slate-600 font-mono">Origin Station</span>
+                                            )}
+                                          </div>
+
+                                          {/* Departure Column */}
+                                          <div className="flex items-center justify-between px-1">
+                                            <span className="text-slate-500 font-medium">Departure:</span>
+                                            {depSched ? (
+                                              <div className="font-mono flex items-center gap-1.5">
+                                                <span className="text-slate-400 line-through">{depSched}</span>
+                                                <span className="text-cyan-400 font-bold">&rarr;</span>
+                                                <span className={depReal !== depSched ? 'text-rose-400 font-bold' : 'text-slate-200'}>{depReal}</span>
+                                              </div>
+                                            ) : (
+                                              <span className="text-slate-600 font-mono">Final Station</span>
+                                            )}
+                                          </div>
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
+                                    )
+                                  })}
                                 </div>
                               </div>
                             )}

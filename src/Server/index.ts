@@ -7,7 +7,7 @@ import DefaultController from './Controllers/DefaultController'
 import { $PAYBACK_FILE } from '../FilePaths'
 import { getJsonFile } from '../Utils/file'
 
-const CreateServer = (port: number = 3000) => {
+export const createApp = (): express.Express => {
     const app: express.Express = express()
     
     app.use(express.json())
@@ -51,6 +51,11 @@ const CreateServer = (port: number = 3000) => {
         app.get('/', DefaultController)
     }
 
+    return app
+}
+
+const CreateServer = (port: number = 3000) => {
+    const app = createApp()
     const server = app.listen(port, () => console.log(`Server running on http://localhost:${ port }`))
     return server
 }

@@ -14,8 +14,8 @@ test.describe('Scanner Hit & Delay Detection Unit Tests', () => {
     expect(trip.StartLocationName).toBe('Göteborg C')
     expect(trip.FinalLocationCode).toBe('Cst')
     expect(trip.FinalLocationName).toBe('Stockholm Central')
-    expect(trip.Stations.length).toBe(1)
-    expect(trip.Stations[0].MinutesDelay).toBe(25)
+    expect(trip.Stations.length).toBe(3)
+    expect(trip.Stations[1].MinutesDelay).toBe(25)
   })
 
   test('should generate modern SJ train and station URLs', () => {
