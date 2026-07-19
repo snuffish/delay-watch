@@ -1,23 +1,17 @@
-const { JsonView, JsonProperty } = require('typescript-json-object-mapper')
+export default class StationInfoView {
+    Date?: string
+    Time?: string
+    RealDate?: string
+    RealTime?: string
+    IsDelayed?: boolean
+    IsCancelled?: boolean
 
-class StationInfoView extends JsonView {
-    @JsonProperty
-    Date: String | undefined
-
-    @JsonProperty
-    Time: String | undefined
-
-    @JsonProperty
-    RealDate: String | undefined
-
-    @JsonProperty
-    RealTime: String | undefined
-
-    @JsonProperty
-    IsDelayed: Boolean | undefined
-
-    @JsonProperty
-    IsCancelled: Boolean | undefined
+    constructor(data: any = {}) {
+        this.Date = data.Date || ''
+        this.Time = data.Time || ''
+        this.RealDate = data.RealDate || ''
+        this.RealTime = data.RealTime || ''
+        this.IsDelayed = Boolean(data.IsDelayed)
+        this.IsCancelled = Boolean(data.IsCancelled)
+    }
 }
-
-export default StationInfoView

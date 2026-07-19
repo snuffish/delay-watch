@@ -1,23 +1,21 @@
 {
   "name": "delay-watch",
   "version": "1.7.9",
-  "engines": {
-    "node": "13.5.0",
-    "npm": "6.13.7"
-  },
   "description": "This application scans and manages delays for trains and paybacks etc.",
-  "main": "src/index.ts",
-  "repository": {
-    "type": "git",
-    "url": "git+https://snuffish@bitbucket.org/snuffish/delay-watch.git"
-  },
+  "main": "dist/src/index.js",
   "bin": {
     "delay-watch": "dist/bin/delay-watch.js"
   },
   "scripts": {
     "start": "node dist/src/worker.js",
-    "dev": "ts-node-dev --respawn .",
-    "build": "tsc"
+    "dev": "vite",
+    "server": "ts-node-dev src/Server/index.ts",
+    "build": "tsc && vite build",
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://snuffish@bitbucket.org/snuffish/delay-watch.git"
   },
   "author": "",
   "license": "ISC",
@@ -31,7 +29,6 @@
     "dotenv": "^8.6.0",
     "esm": "^3.2.25",
     "express": "^4.17.1",
-    "fs": "0.0.1-security",
     "googleapis": "^92.0.0",
     "jsdom": "^16.1.0",
     "moment": "^2.24.0",
@@ -45,20 +42,23 @@
     "user-home": "^3.0.0"
   },
   "devDependencies": {
-    "@overnightjs/core": "^1.6.14",
-    "@overnightjs/logger": "^1.1.10",
     "@types/chalk": "^2.2.0",
     "@types/cli-progress": "^3.4.2",
     "@types/commander": "^2.12.2",
     "@types/dotenv": "^8.2.0",
     "@types/express": "^4.17.2",
-    "@types/js-base64": "^2.3.1",
+    "@types/jsdom": "^16.2.0",
     "@types/mongodb": "^3.3.16",
-    "@types/node": "^13.7.1",
+    "@types/node": "^18.0.0",
     "@types/node-cron": "^2.0.2",
     "@types/node-fetch": "^2.5.4",
-    "@types/puppeteer": "^2.0.0",
     "@types/user-home": "^2.0.0",
-    "typescript": "^3.7.5"
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.3.0",
+    "vitest": "^1.6.0"
   }
 }

@@ -9,20 +9,21 @@ import { Config } from './Config'
 import Payback from './Payback'
 import Scan from './Scan'
 import Server from './Server'
+import { Stations } from './Stations'
 
 const collect = (value: any, previous: any) => previous.concat([value])
 
 export const cli = () => {
     program
-        .version(program.opts().version)
+        .version('1.7.9')
         .name(`delay-watch`)
-        .description(`Version: ${ program.opts().version }`)
+        .description(`Scan and manage train delays & paybacks`)
 
     program 
         .command('scan')
         .alias('s')
         .description('Start the scanner')
-        .option('-d, --delay [minutes]', 'Trains that have a higher than delay time', 20)
+        .option('-d, --delay [minutes]', 'Trains with delay higher than limit', 20)
         .option('-l, --location <code>', 'Scan from a specific locationCode', collect, [])
         .action(Scan)
 
@@ -40,9 +41,15 @@ export const cli = () => {
         .action(Payback)
 
     program
+        .command('stations')
+        .alias('st')
+        .description('List available stations')
+        .action(Stations)
+
+    program
         .command('server')
         .description('Start a server')
-        .option('-p, --port [port]', 'Specify a port for the server', process.env.PORT)
+        .option('-p, --port [port]', 'Specify a port for the server', process.env.PORT || '3000')
         .action(Server)
 
     program.parse(process.argv)
@@ -52,4 +59,4 @@ export const cli = () => {
     }
 }
 
-export const argumentsCount = (removeArgs: number): number => process.argv.splice(removeArgs).length
+export const argumentsCount = (removeArgs: number): number => Math.max(0, process.argv.length - removeArgs)

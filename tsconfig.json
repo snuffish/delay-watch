@@ -1,20 +1,26 @@
 {
-    "compilerOptions": {
-        "target": "ESNext",
-        "module": "commonjs",
-        "outDir": "./dist",
-        "rootDir": "./src",
-        "strict": true,
-        "resolveJsonModule": true,
-        "moduleResolution": "node",
-        "esModuleInterop": true,
-        "experimentalDecorators": true,
-        "emitDecoratorMetadata": true,
-        "forceConsistentCasingInFileNames": true,
-        "allowSyntheticDefaultImports": true,
-        "types": [
-            "jasmine",
-            "node"
-        ]
-    }
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "commonjs",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "outDir": "./dist",
+    "strict": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src/**/*",
+    "bin/**/*",
+    "tests/**/*",
+    "vite.config.ts"
+  ]
 }

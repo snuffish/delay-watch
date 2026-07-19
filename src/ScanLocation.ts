@@ -1,5 +1,4 @@
 import { getTrafficInfo, REQUEST_TYPE, getStationName } from './Utils/traffic'
-const { JsonObjectMapper } = require('typescript-json-object-mapper')
 import { getDate, FORMAT, timeDifference } from './Utils/date'
 import cliProgress from 'cli-progress'
 import StationView from './Views/StationView'
@@ -20,39 +19,42 @@ export class Trip {
     Stations: StationView[] = []
     MinutesDelay: number = 0
 
-    constructor(data: any) {
-        this.AnnouncedTrainNumber = data.AnnouncedTrainNumber
-        this.StartLocationCode = data.StartDepartureLocationCode
-        this.FinalLocationCode = data.FinalDestinationLocationCode
-        this.Operator = data.InformationOwner
+    constructor(data: any = {}) {
+        this.AnnouncedTrainNumber = data.AnnouncedTrainNumber || ''
+        this.StartLocationCode = data.StartDepartureLocationCode || ''
+        this.FinalLocationCode = data.FinalDestinationLocationCode || ''
+        this.Operator = data.InformationOwner || ''
 
         this.StartLocationName = getStationName(this.StartLocationCode)
         this.FinalLocationName = getStationName(this.FinalLocationCode)
 
         this.url = `https://www2.sj.se/sv/trafikinfo/trafiken-idag.html/search/${this.AnnouncedTrainNumber}/Date/${getDate(FORMAT.DATE)}`
 
-        this.addStations(data.Stations)
+        if (Array.isArray(data.Stations)) {
+            this.addStations(data.Stations)
+        }
     }
 
-    private addStations(stations: StationView[]): void {
+    private addStations(stations: any[]): void {
         for (const station of stations) {
-            const arrivalJson = getJson(station.Arrival, StationInfoView)
-            const departureJson = getJson(station.Departure, StationInfoView)
-            let { Time, RealTime } = <any>station.Departure
+            const arrival = station.Arrival ? new StationInfoView(station.Arrival) : undefined
+            const departure = station.Departure ? new StationInfoView(station.Departure) : undefined
+            const departureTime = departure ? (departure.Time || '') : ''
+            const departureRealTime = departure ? (departure.RealTime || '') : ''
 
-            let stationData: StationView = {
+            let stationData = new StationView({
                 LocationCode: station.LocationCode,
                 IsDelayed: station.IsDelayed,
                 IsCancelled: station.IsCancelled,
-                Arrival: arrivalJson,
-                Departure: departureJson
-            }
+                Arrival: arrival,
+                Departure: departure
+            })
 
-            if (station.LocationCode !== undefined) {
+            if (station.LocationCode) {
                 stationData.LocationName = getStationName(station.LocationCode)
             }
 
-            const minutesDelay = timeDifference(Time, RealTime)
+            const minutesDelay = timeDifference(departureTime, departureRealTime)
             stationData.MinutesDelay = minutesDelay
 
             this.Stations.push(stationData)
@@ -60,11 +62,6 @@ export class Trip {
     }
 
     setMinutesDelay = (minutes: number) => this.MinutesDelay = minutes
-}
-
-const getJson = <T>(json: any, ViewClass: T): StationInfoView[] => {
-    const serialized = JsonObjectMapper.serialize(json, ViewClass).toString()
-    return JSON.parse(serialized)
 }
 
 export interface Scan {
@@ -76,12 +73,14 @@ export interface Scan {
 export const ScanLocation = async (locationCode: string, delayMinutes: number = 20, multiBar: MultiBar = undefined): Promise<Scan | undefined> => {
     locationCode = locationCode.toUpperCase()
     let stationTrafficData = await getTrafficInfo(REQUEST_TYPE.STATION, locationCode)
-    let announcedTrainNumbers = stationTrafficData.DepartureConnections.map(train => train.AnnouncedTrainNumber)
+    
+    const departureConnections = stationTrafficData?.DepartureConnections || []
+    let announcedTrainNumbers = departureConnections.map((train: any) => train.AnnouncedTrainNumber).filter(Boolean)
 
     let trips: Trip[] = []
 
-    let progressBar!: ProgressBar
-    if (multiBar !== undefined) {
+    let progressBar: ProgressBar | undefined
+    if (multiBar !== undefined && announcedTrainNumbers.length > 0) {
         progressBar = multiBar.create(announcedTrainNumbers.length, 0, {
             StatusText: chalk.red('Scanning'),
             LocationCode: locationCode,
@@ -95,9 +94,11 @@ export const ScanLocation = async (locationCode: string, delayMinutes: number = 
 
         for (const station of trip.Stations) {
             if (station.IsDelayed && !trips.includes(trip)) {
-                let { Time, RealTime } = <any>station.Departure
+                const dep = station.Departure
+                const departureTime = dep ? (dep.Time || '') : ''
+                const departureRealTime = dep ? (dep.RealTime || '') : ''
 
-                const minutesDelay = timeDifference(Time, RealTime)
+                const minutesDelay = timeDifference(departureTime, departureRealTime)
                 if (minutesDelay >= delayMinutes) {
                     trip.setMinutesDelay(minutesDelay)
                     trips.push(trip)
@@ -113,7 +114,6 @@ export const ScanLocation = async (locationCode: string, delayMinutes: number = 
         progressBar.stop()
         progressBar.update(progressBar.value!, { StatusText: 'Complete' })
     }
-
 
     const scanResult: Scan = {
         LocationCode: locationCode,

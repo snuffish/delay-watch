@@ -1,14 +1,11 @@
-import { ScanLocation, Scan } from '../src/ScanLocation'
+import { ScanLocation, Scan } from './ScanLocation'
 import cliProgress from 'cli-progress'
-import { getConfigValue } from '../src/cli/Config'
 import chalk from 'chalk'
 import RenderScanResult from './Render/RenderScanResult'
 
-async function _Scan({ delay, location }: any) {
-    console.clear()
-
+export async function runScan({ delay = 20, location = ['Sk'] }: { delay?: number, location?: string[] }) {
     let locationCodes = location
-    if (locationCodes.length === 0) locationCodes = ['Sk']
+    if (!locationCodes || locationCodes.length === 0) locationCodes = ['Sk']
 
     const multiBar = new cliProgress.MultiBar({
         format: `{StatusText} [${chalk.underline.bold.greenBright(`{percentage}%`)}] - ${chalk.bold.cyan('{bar}')} | ${chalk.bold(`[{LocationCode}]`)} - ${chalk.bold.blueBright(`{LocationName}`)} || {value}/{total} Trains || ${chalk.greenBright('Time {duration}s')} | ${chalk.gray('ETA {eta}s')}`,
@@ -17,33 +14,29 @@ async function _Scan({ delay, location }: any) {
     })
 
     let found = false
-    let promises: Promise<Scan>[] = []
+    let promises: Promise<Scan | undefined>[] = []
 
-    if (locationCodes !== undefined) {
-        for (const locationCode of locationCodes) {
-            const scanLocation: Promise<Scan | any> = ScanLocation(locationCode, delay, multiBar)
-            if (scanLocation !== undefined) promises.push(scanLocation)
-        }
+    for (const locationCode of locationCodes) {
+        const scanPromise = ScanLocation(locationCode, delay, multiBar)
+        if (scanPromise) promises.push(scanPromise)
     }
 
     if (promises.length > 0) {
-        const scanResult: Scan[] = await Promise.all(promises)
+        const scanResults = await Promise.all(promises)
         multiBar.stop()
 
-        for (const scan of scanResult) {
-            if (scan.Trips.length !== 0) found = true
-
-            RenderScanResult(scan)
+        for (const scan of scanResults) {
+            if (scan && scan.Trips.length !== 0) {
+                found = true
+                RenderScanResult(scan)
+            }
         }
     }
 
-    if (!found) console.log(chalk.bold.bold.redBright(`No delayed trains found!`))
+    if (!found) {
+        console.log(chalk.bold.redBright(`No delayed trains found!`))
+    }
 }
 
-export default _Scan
-
-_Scan({
-    delay: 20,
-    // location: ['SK', 'T', 'G', 'N']
-    location: ['JÖ', 'N', 'SK', 'T', 'THN', 'G', 'SMD', 'BS', 'VB', 'V', 'ÅL', 'HPBG', 'ÖR', 'ÖB', 'UV', 'UÖ', 'VG', 'MDN', 'MDÖ', 'KB']
-})
+export { ScanLocation }
+export default runScan

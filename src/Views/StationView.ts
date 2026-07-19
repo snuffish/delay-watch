@@ -1,28 +1,21 @@
 import StationInfoView from "./StationInfoView"
 
-const { JsonView, JsonProperty } = require('typescript-json-object-mapper')
+export default class StationView {
+    LocationCode?: string
+    LocationName?: string
+    MinutesDelay?: number
+    IsDelayed?: boolean
+    IsCancelled?: boolean
+    Arrival?: StationInfoView
+    Departure?: StationInfoView
 
-class StationView extends JsonView {
-    @JsonProperty
-    LocationCode: string | undefined
-
-    @JsonProperty
-    LocationName?: string | undefined
-
-    @JsonProperty
-    MinutesDelay?: number | undefined
-
-    @JsonProperty
-    IsDelayed: Boolean | undefined
-    
-    @JsonProperty
-    IsCancelled: Boolean | undefined
-    
-    @JsonProperty
-    Arrival: StationInfoView[] | undefined
-    
-    @JsonProperty
-    Departure: StationInfoView[] | undefined
+    constructor(data: any = {}) {
+        this.LocationCode = data.LocationCode || ''
+        this.LocationName = data.LocationName || ''
+        this.MinutesDelay = data.MinutesDelay || 0
+        this.IsDelayed = Boolean(data.IsDelayed)
+        this.IsCancelled = Boolean(data.IsCancelled)
+        this.Arrival = data.Arrival ? new StationInfoView(data.Arrival) : undefined
+        this.Departure = data.Departure ? new StationInfoView(data.Departure) : undefined
+    }
 }
-
-export default StationView

@@ -1,13 +1,12 @@
 import { CliTable } from "../Render"
+import StationsData from "../dataStore/Stations.data"
 
 export const Stations = () => {
-    let table: any = new CliTable(['LoctionCode', 'Station name'])
-    
-    // TODO: FIX CORRECT DATA LATER FROM CONFIG
-    table.addRows(
-        ['xxx', 'xx'],
-        ['yyy', 'yy']
-    )
-    
+    let table = new CliTable(['LocationCode', 'Station Name', 'Country'])
+
+    for (const station of StationsData) {
+        table.addRows([station.id, station.name, station.country || 'SE'])
+    }
+
     table.render()
 }

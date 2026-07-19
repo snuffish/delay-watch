@@ -1,27 +1,9 @@
-interface TrafficInfiObject {
-    /**
-     * Departure station
-     * @returns {LocationCode} LocationCode
-     */
+export interface TrafficInfoObject {
     LocationCode: string
-
-    /**
-     * Departure connections
-     * @returns {Train[]} Train[]
-     */
     DepartureConnections: any[]
-
-    /**
-     * Arrival connections
-     * @returns {Train[]} Train[]
-     */
     ArrivalConnections: any[]
-
-    /**
-     * Stations between Start and End location
-     * @returns {Station[]} Station[]
-     */
     Stations: any[]
 }
 
-export default TrafficInfiObject
+export type TrafficInfiObject = TrafficInfoObject
+export default TrafficInfoObject

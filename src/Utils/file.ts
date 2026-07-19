@@ -6,9 +6,15 @@ export const readFromFile = (filepath: string): string => {
     return Buffer.from(dataBuffer).toString()
 }
 
-export const getJsonFie = (filepath: string): any => {
+export const getJsonFile = (filepath: string): any => {
+    if (!fs.existsSync(filepath)) {
+        return null
+    }
     const jsonString = readFromFile(filepath)
     return JSON.parse(jsonString)
 }
+
+// Backward compatibility alias
+export const getJsonFie = getJsonFile
 
 export const link = (title: string, url: string) => terminalLink(title, url)
