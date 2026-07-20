@@ -1,12 +1,7 @@
 import React, { useState, useMemo } from "react";
 import StationsData from "../../dataStore/stations.json";
+import { StationItem } from "../../dataStore/types";
 import { useSelectedStations } from "../hooks/useSelectedStations";
-
-interface StationItem {
-    id: string;
-    name: string;
-    country?: string;
-}
 
 const allStations = StationsData as StationItem[];
 

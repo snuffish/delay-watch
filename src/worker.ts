@@ -1,49 +1,38 @@
-require('dotenv').config()
-
-var cron = require('node-cron');
-
-import { Scan, ScanLocation } from "./ScanLocation";
-import fs from 'fs'
-import { getConfigValue } from "./cli/Config";
+import 'dotenv/config'
+import cron from 'node-cron'
+import { ScanLocation } from './ScanLocation'
+import { getConfigValue } from './cli/Config'
 import { sendDailyReport } from './Utils/mail'
 
 const checkAndSendMail = async () => {
-    const sendTo = 'snuffish90@gmail.com'
+    const sendTo: string | undefined = getConfigValue('email')
+    if (!sendTo) {
+        console.log(`No 'email' set in the config file — skipping daily report.`)
+        return
+    }
 
-    //let locationCodes = getConfigValue('locationCodes')
-    let locationCodes = ["JÖ", "N", "SK", "T", "THN", "G", "SMD", "BS", "VB", "V", "ÅL", "HPBG", "ÖR", "ÖB", "UV", "UÖ", "VG", "MDN", "MDÖ", "KB"]
+    const locationCodes: string[] = getConfigValue('locationCodes') || []
+    if (locationCodes.length === 0) {
+        console.log(`No 'locationCodes' set in the config file — skipping daily report.`)
+        return
+    }
 
-    let promises = []
-    if (locationCodes !== undefined) {
-        for (const locationCode of locationCodes) {
-            promises.push(ScanLocation(locationCode))
-        }
+    const scanResults = await Promise.all(locationCodes.map(code => ScanLocation(code)))
 
-        const scanResults = await Promise.all(promises)
-
-        if (sendDailyReport(sendTo, scanResults)) {
-            console.log(`Mail just sent to ${sendTo}`)
-        }
+    if (await sendDailyReport(sendTo, scanResults)) {
+        console.log(`Daily report sent to ${sendTo}`)
+    } else {
+        console.log(`Daily report to ${sendTo} was NOT sent`)
     }
 }
 
-(async () => {
-    console.log("WORKER STARTED!!!!!!")
+const runJob = () => {
+    checkAndSendMail().catch(error => console.error('Scheduled scan failed:', error))
+}
 
-    // Klckan: 11:30 varje dag
-    cron.schedule('30 10 * * *', () => {
-        checkAndSendMail()
-    });
+console.log('Delay Watch worker started')
 
-    // Klockan 17:30 varje dag
-    cron.schedule('30 16 * * *', () => {
-        checkAndSendMail()
-    });
-
-    // Klockan 22:00 varje dag
-    cron.schedule('0 21 * * *', () => {
-        checkAndSendMail()
-    });
-
-    /**/
-})()
+// Schedules are in the server's local time zone.
+cron.schedule('30 10 * * *', runJob) // 10:30 every day
+cron.schedule('30 16 * * *', runJob) // 16:30 every day
+cron.schedule('0 21 * * *', runJob)  // 21:00 every day

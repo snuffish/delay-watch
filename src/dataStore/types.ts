@@ -1,9 +1,12 @@
-interface IStation {
+// Shape of the entries in stations.json — the canonical station type for
+// both the web UI and the Node-side code.
+export interface StationItem {
     id: string
-    country: 'SE'
-    isForPresentation: Readonly<boolean>
-    lon: string
-    lat: string
+    name: string
+    country?: string
+    isForPresentation?: boolean
+    lon?: string
+    lat?: string
 }
 
-export type Stations = Array<IStation>
+export type Stations = StationItem[]

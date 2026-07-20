@@ -1,14 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import StationsData from '../../dataStore/stations.json'
+import { StationItem } from '../../dataStore/types'
+import { getStationUrl } from '../../Utils/sjLinks'
 import { useSelectedStations } from '../hooks/useSelectedStations'
-
-const getStationUrl = (stationName: string): string => {
-  const encodedName = encodeURIComponent(stationName)
-  const queryName = encodedName.replace(/%20/g, '+')
-  const dateStr = new Date().toISOString().split('T')[0]
-  return `https://www.sj.se/trafikinformation/station/${encodedName}?station=${queryName}&date=${dateStr}`
-}
 
 const calcMinutesDiff = (t1?: string, t2?: string): number | null => {
   if (!t1 || !t2) return null
@@ -45,12 +40,6 @@ interface ScanData {
   LocationCode: string
   LocationName: string
   Trips: TripData[]
-}
-
-interface StationItem {
-  id: string
-  name: string
-  country?: string
 }
 
 const allStations = StationsData as StationItem[]
@@ -207,7 +196,7 @@ export function ScannerRoute() {
                   <span key={code} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900 border border-slate-700/80 text-xs font-medium text-slate-200 shadow-sm">
                     <span className="font-mono font-bold text-cyan-400">[{code}]</span>
                     <span>{name}</span>
-                    <button onClick={() => handleRemoveStation(code)} className="ml-1 text-slate-400 hover:text-rose-400 transition font-bold">&times;</button>
+                    <button onClick={() => handleRemoveStation(code)} aria-label={`Remove ${name} from selection`} className="ml-1 text-slate-400 hover:text-rose-400 transition font-bold">&times;</button>
                   </span>
                 )
               })

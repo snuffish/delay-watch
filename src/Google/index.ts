@@ -9,11 +9,6 @@ import chalk from "chalk";
 const jsdom = require("jsdom");
 const { JSDOM } = jsdom;
 
-let gmail: any = undefined;
-let auth: any = undefined;
-
-let progressBar: any = undefined;
-
 // If modifying these scopes, delete token.json.
 const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
 // The file token.json stores the user's access and refresh tokens, and is
@@ -103,60 +98,64 @@ const generatePaybackData = async (
     _auth: any,
     fromYear: number | undefined = undefined,
 ) => {
-    auth = _auth;
     try {
         fs.unlinkSync($PAYBACK_FILE);
-    } catch (err) {
-        //console.log("ERR => ", err)
+    } catch {
+        // File did not exist yet — nothing to remove.
     }
 
-    gmail = google.gmail({ version: "v1", auth: _auth });
-    gmail.users.messages.list(
-        {
-            userId: "me",
-            //q: `from:Kundservicefirst@vasttrafik.se AND Subject:Värdekod ${ fromYear !== undefined ? 'AND after:' + fromYear + '-01-01' : '' }`
-            q: `from:Kundservicefirst@vasttrafik.se AND Subject:Värdekod AND after:2010-01-01`,
-        },
-        handleEmail,
-    );
-};
+    const gmail = google.gmail({ version: "v1", auth: _auth });
+    const query = `from:Kundservicefirst@vasttrafik.se AND Subject:Värdekod AND after:${fromYear ?? 2010}-01-01`;
 
-const handleEmail = (err: any, res: any) => {
-    let promises: Promise<PaybackInterface>[] = [];
+    try {
+        // Gmail caps list responses (~100 messages) — page through everything so
+        // older paybacks aren't silently missed.
+        const messageIds: string[] = [];
+        let pageToken: string | undefined = undefined;
+        do {
+            const res: any = await gmail.users.messages.list({
+                userId: "me",
+                q: query,
+                pageToken,
+            });
+            for (const message of res.data.messages ?? []) {
+                if (message.id) messageIds.push(message.id);
+            }
+            pageToken = res.data.nextPageToken ?? undefined;
+        } while (pageToken);
 
-    if (res !== undefined) {
-        for (const { id } of res.data.messages) {
-            promises.push(gmail.users.messages.get({ userId: "me", id }));
+        if (messageIds.length === 0) {
+            console.log(chalk.yellow("No payback emails found."));
+            return;
         }
-    }
 
-    if (promises.length > 0) {
-        Promise.all(promises).then((emailData: any) => {
-            let paybackList: PaybackInterface[] = [];
+        const emailData = await Promise.all(
+            messageIds.map((id) => gmail.users.messages.get({ userId: "me", id })),
+        );
 
-            let progressBar = createPaybackSyncProgressBar(emailData.length);
+        const paybackList: PaybackInterface[] = [];
+        const progressBar = createPaybackSyncProgressBar(emailData.length);
 
-            for (const data of emailData) {
-                let payback = handleEmailData(data);
-
-                if (payback !== undefined) {
-                    paybackList.push(payback);
-                }
-                progressBar.increment();
+        for (const data of emailData) {
+            const payback = handleEmailData(data);
+            if (payback !== undefined) {
+                paybackList.push(payback);
             }
+            progressBar.increment();
+        }
 
-            paybackList.reverse();
+        paybackList.reverse();
+        progressBar.stop();
 
-            progressBar.stop();
+        if (!fs.existsSync($PAYBACK_FILE)) {
+            console.log(
+                `${chalk.bold.greenBright("Created payback file:")} ${chalk.redBright($PAYBACK_FILE)}`,
+            );
+        }
 
-            if (!fs.existsSync($PAYBACK_FILE)) {
-                console.log(
-                    `${chalk.bold.greenBright("Created payback file:")} ${chalk.redBright($PAYBACK_FILE)}`,
-                );
-            }
-
-            fs.writeFileSync($PAYBACK_FILE, JSON.stringify(paybackList));
-        });
+        fs.writeFileSync($PAYBACK_FILE, JSON.stringify(paybackList));
+    } catch (error) {
+        console.error(chalk.red.bold("Failed to sync paybacks from Gmail:"), error);
     }
 };
 
@@ -166,21 +165,21 @@ const handleEmail = (err: any, res: any) => {
 }*/
 
 const handleEmailData = (emailData: any): PaybackInterface | undefined => {
-    const headers = emailData.data.payload.headers;
+    const headers: any[] = emailData?.data?.payload?.headers ?? [];
 
-    const subject = headers
+    const subject: string = headers
         .filter((item: any) => item.name === "Subject")
-        .map((item: any) => item.value)[0];
-    let datetime = headers
+        .map((item: any) => item.value)[0] ?? "";
+    const datetime = headers
         .filter((item: any) => item.name === "Date")
         .map((item: any) => convertDate(item.value, FORMAT.DATETIME))[0];
     const caseNumber = getCaseNumberFromSubject(subject);
 
     if (subject.indexOf("Värdekod gällande ärende") !== -1) {
-        const htmlString = Buffer.from(
-            emailData.data.payload.parts[0].body.data,
-            "base64",
-        ).toString();
+        const bodyData = emailData?.data?.payload?.parts?.[0]?.body?.data;
+        if (!bodyData) return undefined;
+
+        const htmlString = Buffer.from(bodyData, "base64").toString();
         const codeAndPrice = getCodeAndPriceFromHtml(htmlString);
 
         return <PaybackInterface>{
@@ -199,23 +198,16 @@ const handleEmailData = (emailData: any): PaybackInterface | undefined => {
     return undefined;
 };
 
-const getCaseNumberFromSubject = (str: string) => {
-    const regex = /\[([0-9A-Z]+)]/gm;
-    let m;
-
-    let caseNumber: any = "";
-
-    let match: any = regex.exec(str);
-    if (match !== null) {
-        return match["1"];
-    }
+const getCaseNumberFromSubject = (str: string): string => {
+    const match = /\[([0-9A-Z]+)]/.exec(str);
+    return match !== null ? match[1] : "";
 };
 
 const getCodeAndPriceFromHtml = (htmlString: string) => {
     const dom = new JSDOM(htmlString);
 
     /** Get code */
-    let codeUrl = dom.window.document.querySelector("a").getAttribute("href");
+    const codeUrl = dom.window.document.querySelector("a")?.getAttribute("href") ?? "";
     const codeSplit = codeUrl.split("/");
     const code = codeSplit[codeSplit.length - 1];
 
@@ -223,7 +215,7 @@ const getCodeAndPriceFromHtml = (htmlString: string) => {
     let price = 0;
     const spanList = dom.window.document.querySelectorAll("span");
     for (const span of spanList) {
-        const parseNumber = parseInt(span.textContent);
+        const parseNumber = parseInt(span.textContent ?? "");
         if (Number.isInteger(parseNumber)) {
             price = parseNumber;
             break;

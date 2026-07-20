@@ -1,28 +1,44 @@
 # What is this?
-This application scans and manages delays for trains and paybacks etc.
+This application scans and manages delays for trains and paybacks etc. It ships both a CLI and a React web dashboard backed by the same Express API.
 
 ---
 
+## Setup
+The SJ traffic API requires a subscription key. Create a `.env` file in the project root (it is gitignored):
+
+```bash
+SJ_API_KEY=<your-key>
+```
+
 ## Install
-````
+
+```bash
 npm i -g delay-watch
-````
+```
+
+## Web dashboard
+```bash
+npm run dev
+```
+Starts Vite (with the Express API mounted as dev middleware) and serves the React dashboard: a live station scanner, a station explorer, and a payback overview. `npm run build` produces the production bundle that the standalone server (`delay-watch server`) serves from `dist/`.
 
 ## Usage
 ```bash
 ➜ delay-watch
 Usage: delay-watch [options] [command]
 
-Version: 1.2.6
+Version: 1.7.9
 
 Options:
   -V, --version         output the version number
   -h, --help            output usage information
 
 Commands:
-  run|r [options]       Start the scanner
+  scan|s [options]      Start the scanner
   config|cfg [options]  Configuration for the application
   payback [options]     The paybacks from the train company
+  stations|st           List available stations
+  server [options]      Start a server
 ```
 
 ---

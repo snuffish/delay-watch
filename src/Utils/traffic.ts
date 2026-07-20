@@ -6,11 +6,13 @@ import { getDate, FORMAT, timeDifference } from './date'
 
 export enum REQUEST_TYPE { FILE, TRAIN, STATION }
 
-const SJ_API_KEY = '39296c1a13304493b44236e1bcb7f544'
+const SJ_API_KEY = process.env.SJ_API_KEY || ''
+if (!SJ_API_KEY) {
+    console.warn(`Environment variable 'SJ_API_KEY' not set — SJ API requests will fail. Add it to your .env file.`)
+}
 const SJ_REST_BASE = 'https://prod-api.adp.sj.se/public/trafficinfo-api/v2/rest'
 const SJ_CONNECTIONS_ENDPOINT = `${SJ_REST_BASE}/connections`
 const SJ_TRAIN_ROUTES_ENDPOINT = `${SJ_REST_BASE}/train-routes`
-const SJ_TRAFFIC_ENDPOINT = `${SJ_REST_BASE}/remarks/announcements`
 
 const SJ_HEADERS = {
     'Ocp-Apim-Subscription-Key': SJ_API_KEY,
@@ -77,46 +79,54 @@ for (const station of StationsData) {
     }
 }
 
-export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = undefined): Promise<TrafficInfoObject | any> => {
-    let data: any = undefined
+// A failed SJ request must surface as an empty result plus a logged error — never as
+// fabricated data. An outage should look like an outage, not like "no delayed trains".
+const emptyTrafficInfo = (value: any): TrafficInfoObject => (
+    { LocationCode: value || '', DepartureConnections: [], ArrivalConnections: [], Stations: [], remarks: [] }
+)
 
+export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = undefined): Promise<TrafficInfoObject | any> => {
     if (requestType === REQUEST_TYPE.FILE && value !== undefined) {
-        data = readFromFile(value)
-        return convertToJsonResponse(data)
-    } 
+        return convertToJsonResponse(readFromFile(value))
+    }
 
     const httpFetch = typeof globalThis.fetch !== 'undefined' ? globalThis.fetch : (await import('node-fetch')).default as any
 
     if (requestType === REQUEST_TYPE.STATION && value) {
         try {
-            const stationName = getStationName(value) || value
+            // Query by location code, not by mapped name: SJ resolves codes directly
+            // (any case), while stations.json names can differ from SJ's canonical
+            // names (e.g. "Trollhättan C" vs SJ's "Trollhättan") and then 400.
             const dateStr = getDate(FORMAT.DATE)
-            const url = `${SJ_CONNECTIONS_ENDPOINT}?location=${encodeURIComponent(stationName)}&date=${dateStr}&lang=sv-SE`
+            const url = `${SJ_CONNECTIONS_ENDPOINT}?location=${encodeURIComponent(String(value))}&date=${dateStr}&lang=sv-SE`
 
             const response = await httpFetch(url, { headers: SJ_HEADERS })
-
-            if (response.ok) {
-                const json = await response.json()
-                const departures = json?.departureConnections || json?.DepartureConnections || []
-                const arrivals = json?.arrivalConnections || json?.ArrivalConnections || []
-                const locId = json?.locationId || value || ''
-                const locName = json?.locationName || getStationName(value) || value
-
-                return {
-                    LocationCode: value || locId,
-                    LocationName: locName,
-                    locationId: locId,
-                    locationName: locName,
-                    DepartureConnections: departures,
-                    ArrivalConnections: arrivals,
-                    departureConnections: departures,
-                    arrivalConnections: arrivals,
-                    Stations: json?.Stations || [],
-                    remarks: json?.remarks || []
-                }
+            if (!response.ok) {
+                console.error(`SJ connections request for '${value}' failed with HTTP ${response.status}`)
+                return emptyTrafficInfo(value)
             }
-        } catch {
-            // Proceed to empty result
+
+            const json = await response.json()
+            const departures = json?.departureConnections || json?.DepartureConnections || []
+            const arrivals = json?.arrivalConnections || json?.ArrivalConnections || []
+            const locId = json?.locationId || value || ''
+            const locName = json?.locationName || getStationName(value) || value
+
+            return {
+                LocationCode: value || locId,
+                LocationName: locName,
+                locationId: locId,
+                locationName: locName,
+                DepartureConnections: departures,
+                ArrivalConnections: arrivals,
+                departureConnections: departures,
+                arrivalConnections: arrivals,
+                Stations: json?.Stations || [],
+                remarks: json?.remarks || []
+            }
+        } catch (error) {
+            console.error(`SJ connections request for '${value}' failed:`, error)
+            return emptyTrafficInfo(value)
         }
     }
 
@@ -126,38 +136,26 @@ export const getTrafficInfo = async(requestType: REQUEST_TYPE, value: any = unde
             const url = `${SJ_TRAIN_ROUTES_ENDPOINT}?transportId=${encodeURIComponent(String(value))}&lang=sv-SE&date=${dateStr}`
 
             const response = await httpFetch(url, { headers: SJ_HEADERS })
-
-            if (response.ok) {
-                const json = await response.json()
-                if (Array.isArray(json?.stations) && json.stations.length > 0) {
-                    return mapTrainRoute(json, String(value))
-                }
+            if (response.status === 404) {
+                // Expected: SJ has no route data for many non-SJ trains (e.g.
+                // Västtrafik commuter services) — not an error.
+                return emptyTrafficInfo(value)
             }
-        } catch {
-            // Proceed to empty result
-        }
-    }
+            if (!response.ok) {
+                console.error(`SJ train-routes request for '${value}' failed with HTTP ${response.status}`)
+                return emptyTrafficInfo(value)
+            }
 
-    try {
-        const response = await httpFetch(`${SJ_TRAFFIC_ENDPOINT}?lang=sv`, { headers: SJ_HEADERS })
-
-        if (response.ok) {
             const json = await response.json()
-            if (json?.remarks && json.remarks.length > 0) {
-                return {
-                    LocationCode: value || '',
-                    DepartureConnections: json.remarks,
-                    ArrivalConnections: json.remarks,
-                    Stations: json.remarks,
-                    remarks: json.remarks
-                }
+            if (Array.isArray(json?.stations) && json.stations.length > 0) {
+                return mapTrainRoute(json, String(value))
             }
+        } catch (error) {
+            console.error(`SJ train-routes request for '${value}' failed:`, error)
         }
-    } catch {
-        // Proceed to empty result
     }
 
-    return { LocationCode: value || '', DepartureConnections: [], ArrivalConnections: [], Stations: [], remarks: [] }
+    return emptyTrafficInfo(value)
 }
 
 export const getStationName = (locationCode: string): string => {

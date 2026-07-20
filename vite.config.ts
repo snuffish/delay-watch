@@ -1,3 +1,5 @@
+// Load .env before the server module so SJ_API_KEY reaches the API middleware.
+import 'dotenv/config'
 import { defineConfig, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { createApp } from './src/Server'

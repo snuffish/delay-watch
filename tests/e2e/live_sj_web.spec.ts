@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Live SJ.se E2E Web Integration Tests', () => {
+  // Live tests are opt-in: they depend on network access, the SJ API being up,
+  // and trains actually running. Run with LIVE_SJ=1 to include them.
+  test.skip(!process.env.LIVE_SJ, 'Live SJ API tests are opt-in — set LIVE_SJ=1 to run them')
 
   test('should perform an unmocked live scan against real SJ API (prod-api.adp.sj.se) and render live results on web UI', async ({ page }) => {
     test.setTimeout(45000)
@@ -8,7 +11,7 @@ test.describe('Live SJ.se E2E Web Integration Tests', () => {
     await page.goto('/')
 
     // Wait for main layout
-    await page.waitForSelector('h1', { timeout: 10000 })
+    await expect(page.locator('h1')).toBeVisible()
 
     // Click Start Scan to initiate live SJ API requests via Vite's baked-in API middleware
     const scanBtn = page.getByRole('button', { name: 'Start Scan' })

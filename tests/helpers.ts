@@ -12,15 +12,18 @@ let activeServer: Server | null = null
 
 export const startTestServer = (port: number = TEST_SERVER_PORT): Server | null => {
   if (!activeServer) {
-    try {
-      const server = CreateServer(port)
-      server.on('error', (err: any) => {
-        if (err.code === 'EADDRINUSE') {
-          console.log(`[helpers] Server port ${port} already bound, using active instance.`)
-        }
-      })
-      activeServer = server
-    } catch {}
+    const server = CreateServer(port)
+    server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`[helpers] Server port ${port} already bound, using active instance.`)
+      } else {
+        // A silent bind failure makes every downstream request fail confusingly —
+        // surface the real cause instead.
+        console.error(`[helpers] Test server failed to start on port ${port}:`, err)
+        throw err
+      }
+    })
+    activeServer = server
   }
   return activeServer
 }

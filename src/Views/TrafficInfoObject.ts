@@ -11,5 +11,4 @@ export interface TrafficInfoObject {
     remarks?: any[]
 }
 
-export type TrafficInfiObject = TrafficInfoObject
 export default TrafficInfoObject

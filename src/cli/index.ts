@@ -1,4 +1,4 @@
-require('dotenv').config()
+import 'dotenv/config'
 
 // Set a higher limit of allowed listeners
 process.setMaxListeners(100)
@@ -38,6 +38,7 @@ export const cli = () => {
         .command('payback')
         .description('The paybacks from the train company')
         .option('--sync', 'Sync the paybacks from the mail inbox')
+        .option('--sync-year <year>', 'Only sync paybacks received since this year')
         .action(Payback)
 
     program

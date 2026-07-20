@@ -1,4 +1,4 @@
-require('dotenv').config()
+import 'dotenv/config'
 import { getJsonFile } from '../Utils/file'
 import chalk from 'chalk'
 import { getStationName } from '../Utils/traffic'
@@ -8,7 +8,7 @@ import { CliTable } from '../Render'
 const configFilePath = process.env.CONFIG_FILE || $CONFIG_FILE
 const getConfigData = () => getJsonFile(configFilePath) || {}
 
-export const Config = ({ set, get }: any) => {
+export const Config = ({ get }: any) => {
     const config = getConfigData()
     console.log(`${chalk.bold.greenBright('Config file is located at:')} ${chalk.redBright(configFilePath)}`)
     

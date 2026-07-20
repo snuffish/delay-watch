@@ -13,3 +13,7 @@ coverage/
 # Files
 package-lock.json
 .DS_Store
+
+# Secrets & local environment
+.env
+.env.local

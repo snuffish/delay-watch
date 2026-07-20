@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express from 'express'
 import path from 'path'
 import fs from 'fs'
@@ -36,11 +37,11 @@ export const createApp = ({ serveStatic = true }: CreateAppOptions = {}): expres
     app.get('/api/stations', StationController)
     app.get('/stations', StationController) // legacy endpoint support
     
-    app.get('/api/payback', (req, res) => {
-        if (!fs.existsSync($PAYBACK_FILE)) {
-            return res.json({ paybacks: [], totalPayback: 0, count: 0 })
-        }
-        const paybacks = getJsonFile($PAYBACK_FILE) || []
+    app.get('/api/payback', (_req, res) => {
+        // getJsonFile returns null for a missing or malformed file; anything that
+        // isn't an array is treated as "no paybacks" rather than a 500.
+        const fileData = getJsonFile($PAYBACK_FILE)
+        const paybacks = Array.isArray(fileData) ? fileData : []
         const totalPayback = paybacks.reduce((sum: number, p: any) => sum + (p.price || 0), 0)
         res.json({ paybacks, totalPayback, count: paybacks.length })
     })

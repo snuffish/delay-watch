@@ -3,12 +3,12 @@ import PaybackInterface from '../Google/PaybackInterface'
 import chalk from 'chalk'
 import { $GOOGLE_CREDENTIALS, $PAYBACK_FILE } from '../FilePaths'
 import { generatePaybackData, authorize } from '../Google'
-import { getJsonFie } from '../Utils/file'
+import { getJsonFile } from '../Utils/file'
 import { argumentsCount } from '.'
 import { CliTable } from '../Render'
 
 const Payback = ({ sync, syncYear }: any) => {
-    const googleCredentials = getJsonFie($GOOGLE_CREDENTIALS)
+    const googleCredentials = getJsonFile($GOOGLE_CREDENTIALS)
 
     if (sync || syncYear !== undefined) {
         authorize(googleCredentials, (authClient: any) => {
@@ -26,7 +26,7 @@ const Payback = ({ sync, syncYear }: any) => {
         return
     }
 
-    const paybackList: PaybackInterface[] = getJsonFie($PAYBACK_FILE) || []
+    const paybackList: PaybackInterface[] = getJsonFile($PAYBACK_FILE) || []
 
     let totalPayback: number = 0
     

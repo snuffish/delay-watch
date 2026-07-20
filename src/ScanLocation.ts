@@ -1,5 +1,6 @@
 import { getTrafficInfo, REQUEST_TYPE, getStationName } from './Utils/traffic'
-import { getDate, FORMAT, timeDifference } from './Utils/date'
+import { timeDifference } from './Utils/date'
+import { getStationUrl, getTrainUrl } from './Utils/sjLinks'
 import cliProgress from 'cli-progress'
 import StationView from './Views/StationView'
 import StationInfoView from './Views/StationInfoView'
@@ -8,15 +9,7 @@ import chalk from 'chalk'
 type MultiBar = cliProgress.MultiBar | undefined
 interface ProgressBar extends cliProgress.SingleBar { value?: number }
 
-export const getStationUrl = (stationName: string, date: string = getDate(FORMAT.DATE)): string => {
-    const encodedName = encodeURIComponent(stationName)
-    const queryName = encodedName.replace(/%20/g, '+')
-    return `https://www.sj.se/trafikinformation/station/${encodedName}?station=${queryName}&date=${date}`
-}
-
-export const getTrainUrl = (trainNumber: string, date: string = getDate(FORMAT.DATE)): string => {
-    return `https://www.sj.se/trafikinformation/tag/${trainNumber}?date=${date}`
-}
+export { getStationUrl, getTrainUrl }
 
 export class Trip {
     AnnouncedTrainNumber: string
@@ -135,7 +128,27 @@ const routeDelay = (trip: Trip): number => {
     return max
 }
 
-export const ScanLocation = async (locationCode: string, delayMinutes: number = 20, multiBar: MultiBar = undefined): Promise<Scan | undefined> => {
+// A promise-cache keyed by train number. Callers scanning several stations in one
+// request pass a shared instance so a through-train is only fetched from SJ once.
+export type TrainRouteCache = Map<string, Promise<any>>
+
+// Cap concurrent SJ requests per scan — a busy station can list dozens of trains.
+const MAX_CONCURRENT_TRAIN_FETCHES = 8
+
+const mapWithConcurrency = async <T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> => {
+    const results: R[] = new Array(items.length)
+    let next = 0
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (next < items.length) {
+            const index = next++
+            results[index] = await fn(items[index])
+        }
+    })
+    await Promise.all(workers)
+    return results
+}
+
+export const ScanLocation = async (locationCode: string, delayMinutes: number = 20, multiBar: MultiBar = undefined, routeCache: TrainRouteCache = new Map()): Promise<Scan | undefined> => {
     locationCode = locationCode.toUpperCase()
     let stationTrafficData = await getTrafficInfo(REQUEST_TYPE.STATION, locationCode)
     
@@ -164,11 +177,21 @@ export const ScanLocation = async (locationCode: string, delayMinutes: number = 
         })
     }
 
-    for (const conn of allConnections) {
-        const trainNumber = conn.AnnouncedTrainNumber || conn.trainNumber
-        if (!trainNumber) continue
+    const getTrainRoute = (trainNumber: string): Promise<any> => {
+        if (!routeCache.has(trainNumber)) {
+            routeCache.set(trainNumber, getTrafficInfo(REQUEST_TYPE.TRAIN, trainNumber))
+        }
+        return routeCache.get(trainNumber)!
+    }
 
-        const trainTrafficData = await getTrafficInfo(REQUEST_TYPE.TRAIN, trainNumber)
+    const routeResults = await mapWithConcurrency(allConnections, MAX_CONCURRENT_TRAIN_FETCHES, async (conn: any) => {
+        const trainNumber = conn.AnnouncedTrainNumber || conn.trainNumber
+        const trainTrafficData = trainNumber ? await getTrainRoute(String(trainNumber)) : undefined
+        if (progressBar !== undefined) progressBar.increment()
+        return { conn, trainTrafficData }
+    })
+
+    for (const { conn, trainTrafficData } of routeResults) {
         const hasRoute = trainTrafficData && Array.isArray(trainTrafficData.Stations) && trainTrafficData.Stations.length > 0
         const trip = hasRoute ? new Trip(trainTrafficData) : new Trip(conn, getStationName(locationCode))
 
@@ -186,8 +209,6 @@ export const ScanLocation = async (locationCode: string, delayMinutes: number = 
                 trips.push(trip)
             }
         }
-
-        if (progressBar !== undefined) progressBar.increment()
     }
 
     if (progressBar !== undefined) {

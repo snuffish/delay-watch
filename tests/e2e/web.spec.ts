@@ -8,7 +8,7 @@ test.describe('Delay Watch React & TanStack Web Application E2E Tests', () => {
     await page.goto('/')
 
     // Wait for React app root to render
-    await page.waitForSelector('h1', { timeout: 10000 })
+    await expect(page.locator('h1')).toBeVisible()
 
     // Check Header branding
     await expect(page.locator('h1')).toContainText('Delay Watch')
@@ -26,7 +26,7 @@ test.describe('Delay Watch React & TanStack Web Application E2E Tests', () => {
 
   test('should support station autocomplete dropdown and station badge removal', async ({ page }) => {
     await page.goto('/')
-    await page.waitForSelector('h1', { timeout: 10000 })
+    await expect(page.locator('h1')).toBeVisible()
 
     const input = page.locator('input[placeholder*="Skövde or SK"]')
     await input.fill('Stockholm')
@@ -43,7 +43,7 @@ test.describe('Delay Watch React & TanStack Web Application E2E Tests', () => {
     await expect(badge).toBeVisible()
 
     // Remove badge
-    const removeBtn = badge.locator('..').locator('button')
+    const removeBtn = page.getByRole('button', { name: 'Remove Stockholm Central from selection' })
     await removeBtn.click()
 
     // Verify badge removed
@@ -55,7 +55,7 @@ test.describe('Delay Watch React & TanStack Web Application E2E Tests', () => {
     await mockRouteJson(page, '/api/scan', mockScanResultPayload)
 
     await page.goto('/')
-    await page.waitForSelector('h1', { timeout: 10000 })
+    await expect(page.locator('h1')).toBeVisible()
 
     // Click Start Scan
     await page.getByRole('button', { name: 'Start Scan' }).click()
@@ -72,7 +72,7 @@ test.describe('Delay Watch React & TanStack Web Application E2E Tests', () => {
 
   test('should navigate to Station Explorer and Paybacks routes via TanStack Router', async ({ page }) => {
     await page.goto('/')
-    await page.waitForSelector('h1', { timeout: 10000 })
+    await expect(page.locator('h1')).toBeVisible()
 
     // Navigate to Station Explorer
     await page.click('text=🚉 Station Explorer')

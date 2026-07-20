@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { ScanLocation, Scan } from "../../ScanLocation"
+import { ScanLocation, Scan, TrainRouteCache } from "../../ScanLocation"
 
 const ScanController = async (req: Request, res: Response) => {
     const { locationCodes = ['Sk'], delay = 20 } = req.body || {}
@@ -9,7 +9,10 @@ const ScanController = async (req: Request, res: Response) => {
     }
 
     try {
-        const promises: Promise<Scan | undefined>[] = locationCodes.map(code => ScanLocation(code, Number(delay)))
+        // Shared per-request cache: a through-train listed at several scanned
+        // stations is only fetched from SJ once.
+        const routeCache: TrainRouteCache = new Map()
+        const promises: Promise<Scan | undefined>[] = locationCodes.map(code => ScanLocation(code, Number(delay), undefined, routeCache))
         const scanResults = await Promise.all(promises)
         const validResults = scanResults.filter((s): s is Scan => s !== undefined)
 

@@ -1,15 +1,17 @@
 import { test, expect } from '@playwright/test'
 import { getTrafficInfo, REQUEST_TYPE } from '../../src/Utils/traffic'
 
-const SJ_API_KEY = '39296c1a13304493b44236e1bcb7f544'
 const SJ_REST_BASE = 'https://prod-api.adp.sj.se/public/trafficinfo-api/v2/rest'
 const SJ_HEADERS = {
-  'Ocp-Apim-Subscription-Key': SJ_API_KEY,
+  'Ocp-Apim-Subscription-Key': process.env.SJ_API_KEY || '',
   'Accept': 'application/json',
   'x-client-name': 'sjse-start-client'
 }
 
 test.describe('Live SJ.se Traffic API Integration Tests', () => {
+  // Live tests are opt-in: they depend on network access, the SJ API being up,
+  // and trains actually running. Run with LIVE_SJ=1 to include them.
+  test.skip(!process.env.LIVE_SJ, 'Live SJ API tests are opt-in — set LIVE_SJ=1 to run them')
 
   test('should query the announcements endpoint and return HTTP 200 with a remarks payload', async ({ request }) => {
     const response = await request.get(`${SJ_REST_BASE}/remarks/announcements?lang=sv`, { headers: SJ_HEADERS })

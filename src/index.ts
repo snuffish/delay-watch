@@ -1,4 +1,4 @@
-import { ScanLocation, Scan } from './ScanLocation'
+import { ScanLocation, Scan, TrainRouteCache } from './ScanLocation'
 import cliProgress from 'cli-progress'
 import chalk from 'chalk'
 import RenderScanResult from './Render/RenderScanResult'
@@ -6,6 +6,9 @@ import RenderScanResult from './Render/RenderScanResult'
 export async function runScan({ delay = 20, location = ['Sk'] }: { delay?: number, location?: string[] }) {
     let locationCodes = location
     if (!locationCodes || locationCodes.length === 0) locationCodes = ['Sk']
+
+    // Shared across stations so a through-train is only fetched from SJ once.
+    const routeCache: TrainRouteCache = new Map()
 
     const multiBar = new cliProgress.MultiBar({
         format: `{StatusText} [${chalk.underline.bold.greenBright(`{percentage}%`)}] - ${chalk.bold.cyan('{bar}')} | ${chalk.bold(`[{LocationCode}]`)} - ${chalk.bold.blueBright(`{LocationName}`)} || {value}/{total} Trains || ${chalk.greenBright('Time {duration}s')} | ${chalk.gray('ETA {eta}s')}`,
@@ -17,8 +20,7 @@ export async function runScan({ delay = 20, location = ['Sk'] }: { delay?: numbe
     let promises: Promise<Scan | undefined>[] = []
 
     for (const locationCode of locationCodes) {
-        const scanPromise = ScanLocation(locationCode, delay, multiBar)
-        if (scanPromise) promises.push(scanPromise)
+        promises.push(ScanLocation(locationCode, delay, multiBar, routeCache))
     }
 
     if (promises.length > 0) {

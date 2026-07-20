@@ -28,14 +28,3 @@ export const createPaybackSyncProgressBar = (max: number) => {
 
     return progressBar
 }
-
-export const createBar = (max: number) => {
-    const progressBar = new cliProgress.SingleBar({
-        format: `LocationCode {LocactionCode} | ${ chalk.cyan('{bar}') } | {percentage}% || {value}/{total} Trains || ${ chalk.greenBright('Time {duration}s') } | ${ chalk.gray('ETA {eta}s') }`,
-        barCompleteChar: '\u2588',
-        barIncompleteChar: '\u2591',
-        hideCursor: true
-    })
-
-    return progressBar
-}

@@ -1,7 +1,7 @@
 import moment from 'moment'
 
 export enum FORMAT {
-    SJ = 'YYYY-MM-DD+hh:mm',
+    SJ = 'YYYY-MM-DD+HH:mm',
     DATE = 'YYYY-MM-DD',
     DATETIME = "YYYY-MM-DD HH:mm:ss"
 }
@@ -28,9 +28,13 @@ export const timeDifference = (startTime: string, stopTime: string): number => {
     if (!start.isValid() || !stop.isValid()) return 0
 
     let diffMinutes = stop.diff(start, 'minutes')
-    // Handle overnight trips (e.g. 23:55 to 00:15)
-    if (diffMinutes < 0) {
+    // With only HH:mm to go on, a negative diff is ambiguous: an overnight span
+    // (23:55 → 00:15) lands near -1440, while a train running early lands near 0.
+    // Wrap only the former; clamp early running to 0 instead of a ~24h "delay".
+    if (diffMinutes < -720) {
         diffMinutes += 24 * 60
+    } else if (diffMinutes < 0) {
+        diffMinutes = 0
     }
 
     return diffMinutes

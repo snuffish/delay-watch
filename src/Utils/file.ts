@@ -10,11 +10,12 @@ export const getJsonFile = (filepath: string): any => {
     if (!fs.existsSync(filepath)) {
         return null
     }
-    const jsonString = readFromFile(filepath)
-    return JSON.parse(jsonString)
+    try {
+        return JSON.parse(readFromFile(filepath))
+    } catch (error) {
+        console.error(`Failed to parse JSON file '${filepath}':`, error)
+        return null
+    }
 }
-
-// Backward compatibility alias
-export const getJsonFie = getJsonFile
 
 export const link = (title: string, url: string) => terminalLink(title, url)
